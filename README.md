@@ -110,7 +110,3 @@ You can export all data as JSON from **Setup > Export data** at any time.
 - [IBM Plex Mono](https://fonts.google.com/specimen/IBM+Plex+Mono) + [Bebas Neue](https://fonts.google.com/specimen/Bebas+Neue) fonts
 - HTML5 Canvas for charts
 - Google Apps Script for optional backend sync
-
-## License
-
-MIT
