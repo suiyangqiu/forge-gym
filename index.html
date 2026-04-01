@@ -119,6 +119,9 @@ body::before {
   transition: all 0.15s;
   position: relative;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .day-card:active { background: var(--bg-card-hover); transform: scale(0.98); }
 .day-card-name {
@@ -184,6 +187,9 @@ body::before {
   border-radius: var(--radius);
   padding: 16px;
   transition: all 0.15s;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .exercise-card.done {
   border-color: var(--green-dim);
@@ -869,7 +875,7 @@ function renderHome() {
   grid.innerHTML = config.days.map(day => {
     const count = day.exercises ? day.exercises.length : 0;
     return `
-      <div class="day-card" onclick="openWorkout('${day.id}')" oncontextmenu="event.preventDefault(); showEditDayModal('${day.id}')">
+      <div class="day-card" onclick="openWorkout('${day.id}')" data-day-id="${day.id}">
         <div class="day-card-name">${esc(day.name)}</div>
         <div class="day-card-meta">${count} exercise${count !== 1 ? 's' : ''}</div>
         <div class="day-card-arrow">&rsaquo;</div>
@@ -1611,11 +1617,48 @@ function formatDate(ts) {
   } catch { return ts; }
 }
 
-// Context menu for exercises (long press)
-document.addEventListener('contextmenu', (e) => {
-  const card = e.target.closest('.exercise-card');
-  if (!card) return;
-  e.preventDefault();
+// Long-press handling (touch + contextmenu fallback for desktop)
+let longPressTimer = null;
+let longPressTriggered = false;
+
+function setupLongPress() {
+  document.addEventListener('touchstart', (e) => {
+    const card = e.target.closest('.exercise-card') || e.target.closest('.day-card');
+    if (!card) return;
+    longPressTriggered = false;
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      if (card.classList.contains('exercise-card')) {
+        triggerExerciseMenu(card);
+      } else if (card.classList.contains('day-card')) {
+        const dayId = card.dataset.dayId;
+        if (dayId) showEditDayModal(dayId);
+      }
+    }, 500);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', () => {
+    clearTimeout(longPressTimer);
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    clearTimeout(longPressTimer);
+    if (longPressTriggered) {
+      e.preventDefault();
+      longPressTriggered = false;
+    }
+  });
+
+  // Desktop fallback (right-click)
+  document.addEventListener('contextmenu', (e) => {
+    const exCard = e.target.closest('.exercise-card');
+    if (exCard) { e.preventDefault(); triggerExerciseMenu(exCard); return; }
+    const dayCard = e.target.closest('.day-card');
+    if (dayCard) { e.preventDefault(); const dayId = dayCard.dataset.dayId; if (dayId) showEditDayModal(dayId); }
+  });
+}
+
+function triggerExerciseMenu(card) {
   const exId = card.id.replace('ex-', '');
   const day = config.days.find(d => d.id === currentDayId);
   if (!day) return;
@@ -1636,7 +1679,9 @@ document.addEventListener('contextmenu', (e) => {
     }},
     { label: 'Cancel', cls: 'cancel', action: closeModal }
   ]);
-});
+}
+
+setupLongPress();
 
 // Boot
 init();
