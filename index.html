@@ -409,7 +409,7 @@ button, input, select, textarea {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
-  align-items: stretch;
+  align-items: end;
 }
 .log-field {
   display: flex; flex-direction: column; gap: 4px;
@@ -423,7 +423,9 @@ button, input, select, textarea {
   background: var(--bg2);
   border: 1px solid var(--line);
   border-radius: 3px;
-  padding: 12px 12px;
+  padding: 0 12px;
+  height: 52px;
+  box-sizing: border-box;
   color: var(--text);
   font-family: var(--serif);
   font-size: 22px;
@@ -436,7 +438,9 @@ button, input, select, textarea {
 .log-input:focus { border-color: var(--accent-dim); }
 .log-input::placeholder { color: var(--text-mute); font-style: italic; }
 .log-save {
-  padding: 12px 22px;
+  padding: 0 22px;
+  height: 52px;
+  box-sizing: border-box;
   background: var(--accent);
   border: none; border-radius: 3px;
   color: var(--on-accent);
@@ -444,7 +448,6 @@ button, input, select, textarea {
   letter-spacing: 0.3px;
   cursor: pointer;
   white-space: nowrap;
-  align-self: stretch;
   min-width: 72px;
 }
 .log-save:active { opacity: 0.85; }
