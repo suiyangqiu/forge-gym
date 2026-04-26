@@ -95,9 +95,33 @@ button, input, select, textarea {
   padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom));
 }
 
-.view { display: none; animation: fadeIn .18s ease; }
-.view.active { display: block; }
+.view { display: none; }
+.view.active { display: block; animation: viewFade .22s ease; }
+.view.active.enter-fwd { animation: viewSlideInRight .28s cubic-bezier(.2,.8,.2,1); }
+.view.active.enter-back { animation: viewSlideInLeft .28s cubic-bezier(.2,.8,.2,1); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes viewFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes viewSlideInRight { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes viewSlideInLeft  { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes cardRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.day-card { animation: cardRise .32s cubic-bezier(.2,.8,.2,1) backwards; }
+.day-card:nth-child(1) { animation-delay: .04s; }
+.day-card:nth-child(2) { animation-delay: .08s; }
+.day-card:nth-child(3) { animation-delay: .12s; }
+.day-card:nth-child(4) { animation-delay: .16s; }
+.day-card:nth-child(5) { animation-delay: .20s; }
+.day-card:nth-child(n+6) { animation-delay: .24s; }
+.exercise-card { animation: cardRise .28s cubic-bezier(.2,.8,.2,1) backwards; }
+.exercise-card:nth-child(1) { animation-delay: .03s; }
+.exercise-card:nth-child(2) { animation-delay: .06s; }
+.exercise-card:nth-child(3) { animation-delay: .09s; }
+.exercise-card:nth-child(4) { animation-delay: .12s; }
+.exercise-card:nth-child(5) { animation-delay: .15s; }
+.exercise-card:nth-child(n+6) { animation-delay: .18s; }
+.day-card:active { transform: scale(0.985); }
+.tab { transition: color .18s ease; }
+.tab.active .tab-label { animation: tabPop .25s cubic-bezier(.2,.8,.2,1); }
+@keyframes tabPop { 0% { transform: translateY(2px); } 60% { transform: translateY(-1px); } 100% { transform: translateY(0); } }
 
 /* ─── Header (per-view) ──────────────────────────────── */
 .head {
@@ -1327,7 +1351,7 @@ button, input, select, textarea {
 <!-- ═══ WORKOUT DETAIL (no tabs) ═══ -->
 <div class="view" id="viewWorkout">
   <div class="head">
-    <button class="head-back" onclick="navTab('today')">
+    <button class="head-back" onclick="navTab('today', 'back')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
       back
     </button>
@@ -1379,7 +1403,7 @@ button, input, select, textarea {
 <!-- ═══ DAY DETAIL (from journal) ═══ -->
 <div class="view" id="viewDayDetail">
   <div class="head">
-    <button class="head-back" onclick="navTab('journal')">
+    <button class="head-back" onclick="navTab('journal', 'back')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
       back
     </button>
@@ -1577,12 +1601,26 @@ async function renameExerciseLogsOnServer(exerciseId, newName) {
 // ║  NAVIGATION                                                ║
 // ╚═══════════════════════════════════════════════════════════╝
 let currentView = 'today';
-function showView(id) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+const VIEW_DEPTH = { viewToday: 0, viewJournal: 0, viewTrends: 0, viewYou: 0, viewWorkout: 1, viewDayDetail: 1, viewHistory: 2 };
+let lastViewId = 'viewToday';
+function showView(id, direction) {
+  if (!direction) {
+    const prevDepth = VIEW_DEPTH[lastViewId] ?? 0;
+    const nextDepth = VIEW_DEPTH[id] ?? 0;
+    if (nextDepth > prevDepth) direction = 'fwd';
+    else if (nextDepth < prevDepth) direction = 'back';
+  }
+  document.querySelectorAll('.view').forEach(v => {
+    v.classList.remove('active', 'enter-fwd', 'enter-back');
+  });
+  const view = document.getElementById(id);
+  view.classList.add('active');
+  if (direction === 'fwd') view.classList.add('enter-fwd');
+  else if (direction === 'back') view.classList.add('enter-back');
+  lastViewId = id;
   window.scrollTo(0, 0);
 }
-function navTab(tab) {
+function navTab(tab, direction) {
   currentView = tab;
   selectedDayDetail = null;
   // Update tabbar
@@ -1590,10 +1628,10 @@ function navTab(tab) {
   document.getElementById('tabbar').classList.remove('hidden');
   // Stop rest timer if leaving workout
   if (tab !== 'workout') restStop();
-  if (tab === 'today') { showView('viewToday'); renderToday(); }
-  else if (tab === 'journal') { showView('viewJournal'); renderJournal(); }
-  else if (tab === 'trends') { showView('viewTrends'); renderTrends(); }
-  else if (tab === 'you') { showView('viewYou'); renderYou(); }
+  if (tab === 'today') { showView('viewToday', direction); renderToday(); }
+  else if (tab === 'journal') { showView('viewJournal', direction); renderJournal(); }
+  else if (tab === 'trends') { showView('viewTrends', direction); renderTrends(); }
+  else if (tab === 'you') { showView('viewYou', direction); renderYou(); }
 }
 function navWorkout(dayId) {
   currentDayId = dayId;
@@ -1606,7 +1644,7 @@ function navWorkout(dayId) {
     });
   }
   document.getElementById('tabbar').classList.add('hidden');
-  showView('viewWorkout');
+  showView('viewWorkout', 'fwd');
   renderWorkout();
 }
 function navHistory(exId, exName) {
@@ -1614,23 +1652,23 @@ function navHistory(exId, exName) {
   historyExName = exName;
   historyMode = 'chart';
   document.getElementById('tabbar').classList.add('hidden');
-  showView('viewHistory');
+  showView('viewHistory', 'fwd');
   renderHistory();
 }
 let selectedDayDetail = null;
 function navDayDetail(dateStr) {
   selectedDayDetail = dateStr;
   document.getElementById('tabbar').classList.add('hidden');
-  showView('viewDayDetail');
+  showView('viewDayDetail', 'fwd');
   renderDayDetail(dateStr);
 }
 function goBackFromHistory() {
   if (currentDayId) {
     document.getElementById('tabbar').classList.add('hidden');
-    showView('viewWorkout');
+    showView('viewWorkout', 'back');
     renderWorkout();
   } else {
-    navTab('today');
+    navTab('today', 'back');
   }
 }
 
