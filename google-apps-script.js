@@ -81,7 +81,7 @@ function getLogs() {
 function addLog(entry) {
   const sheet = getOrCreateSheet(LOGS_SHEET);
   sheet.appendRow([
-    new Date().toISOString(),
+    entry.timestamp || new Date().toISOString(),
     entry.dayId,
     entry.exerciseId,
     entry.exerciseName,
@@ -134,7 +134,7 @@ function getMeasurements() {
 function addMeasurement(entry) {
   const sheet = getOrCreateSheet(MEAS_SHEET);
   sheet.appendRow([
-    new Date().toISOString(),
+    entry.timestamp || new Date().toISOString(),
     entry.type,
     entry.value,
     entry.unit || ''
