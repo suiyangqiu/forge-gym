@@ -215,6 +215,115 @@ button, input, select, textarea {
   color: var(--text-mute); line-height: 1.6;
 }
 
+/* ─── Today gamification ─────────────────────────────── */
+.streak-card {
+  margin: 6px 22px 0;
+  padding: 18px 22px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  display: flex; align-items: center; gap: 18px;
+  position: relative; overflow: hidden;
+}
+.streak-card.alive::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 80% at 0% 50%, var(--accent) 0%, transparent 55%);
+  opacity: 0.10; pointer-events: none;
+}
+.streak-flame {
+  font-size: 30px; line-height: 1;
+  filter: grayscale(1) opacity(0.45);
+  flex-shrink: 0;
+}
+.streak-card.alive .streak-flame { filter: none; }
+.streak-body { flex: 1; min-width: 0; }
+.streak-num {
+  font-family: var(--serif); font-weight: 400;
+  font-size: 32px; line-height: 1; letter-spacing: -0.5px;
+  color: var(--text);
+}
+.streak-num em { font-style: italic; color: var(--accent); }
+.streak-label {
+  font-family: var(--sans); font-size: 11px;
+  color: var(--text-mute); letter-spacing: 1.5px;
+  text-transform: uppercase; font-weight: 500;
+  margin-top: 4px;
+}
+.streak-best {
+  font-family: var(--serif); font-style: italic; font-size: 12px;
+  color: var(--text-dim); margin-top: 6px;
+}
+.streak-best em { color: var(--accent); font-style: italic; }
+
+.stat-grid {
+  margin: 10px 22px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.stat-tile {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 14px 12px;
+  display: flex; flex-direction: column;
+  align-items: flex-start; gap: 4px;
+  min-width: 0;
+}
+.stat-tile-num {
+  font-family: var(--serif); font-weight: 400;
+  font-size: 24px; line-height: 1;
+  color: var(--text); letter-spacing: -0.4px;
+}
+.stat-tile-num em { font-style: italic; color: var(--accent); }
+.stat-tile-num .unit {
+  font-family: var(--sans); font-size: 10px; font-weight: 500;
+  color: var(--text-mute); letter-spacing: 1px; margin-left: 3px;
+  text-transform: uppercase;
+}
+.stat-tile-label {
+  font-family: var(--sans); font-size: 9px; font-weight: 600;
+  letter-spacing: 1.5px; color: var(--text-mute);
+  text-transform: uppercase;
+}
+.stat-tile-delta {
+  font-family: var(--serif); font-style: italic; font-size: 11px;
+  color: var(--text-dim); margin-top: 2px;
+}
+.stat-tile-delta.up { color: var(--accent); }
+.stat-tile-delta.down { color: var(--text-mute); }
+
+.level-bar {
+  margin: 10px 22px 0;
+  padding: 14px 18px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.level-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+}
+.level-name {
+  font-family: var(--serif); font-style: italic; font-size: 16px;
+  color: var(--text);
+}
+.level-name .level-num { color: var(--accent); font-weight: 500; }
+.level-xp {
+  font-family: var(--sans); font-size: 10px; letter-spacing: 1px;
+  color: var(--text-mute); text-transform: uppercase;
+}
+.level-track {
+  margin-top: 10px;
+  height: 4px; background: var(--line); border-radius: 2px;
+  overflow: hidden;
+}
+.level-fill {
+  height: 100%; background: var(--accent);
+  transition: width .4s ease;
+}
+
 /* ─── Add button (dashed) ────────────────────────────── */
 .add-btn {
   margin: 14px 22px 0;
@@ -241,21 +350,18 @@ button, input, select, textarea {
 .workout-vol b { font-style: normal; color: var(--accent); font-weight: 500; }
 
 .exercise-list {
-  padding: 4px 22px 8px;
-  display: flex; flex-direction: column; gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  margin: 14px 22px 0;
-  overflow: hidden;
+  display: flex; flex-direction: column;
+  margin: 14px 0 0;
 }
 .exercise-list:empty { display: none; }
 .exercise-card {
   background: var(--bg);
-  padding: 18px 20px;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--line);
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none;
 }
+.exercise-card:first-child { border-top: 1px solid var(--line); }
 .exercise-card.done { background: var(--bg2); }
 
 .ex-head {
@@ -303,7 +409,7 @@ button, input, select, textarea {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
-  align-items: end;
+  align-items: stretch;
 }
 .log-field {
   display: flex; flex-direction: column; gap: 4px;
@@ -330,7 +436,7 @@ button, input, select, textarea {
 .log-input:focus { border-color: var(--accent-dim); }
 .log-input::placeholder { color: var(--text-mute); font-style: italic; }
 .log-save {
-  padding: 12px 18px;
+  padding: 12px 22px;
   background: var(--accent);
   border: none; border-radius: 3px;
   color: var(--on-accent);
@@ -339,6 +445,7 @@ button, input, select, textarea {
   cursor: pointer;
   white-space: nowrap;
   align-self: stretch;
+  min-width: 72px;
 }
 .log-save:active { opacity: 0.85; }
 
@@ -1106,6 +1213,7 @@ button, input, select, textarea {
     <div class="hero-title" id="todayTitle">What will you <em>build</em>?</div>
     <div class="hero-sub" id="todaySub">Pick a workout day below to begin.</div>
   </div>
+  <div id="todayStats"></div>
   <div class="divider">
     <div class="divider-line"></div>
     <div class="divider-label">Workout Days</div>
@@ -1529,6 +1637,8 @@ function renderToday() {
     document.getElementById('todaySub').textContent = `${dayCount} workout day${dayCount === 1 ? '' : 's'} in your rotation.`;
   }
 
+  renderTodayStats();
+
   const list = document.getElementById('dayList');
   if (dayCount === 0) {
     list.innerHTML = `<div class="empty">No workout days yet.</div>`;
@@ -1545,6 +1655,191 @@ function renderToday() {
       </div>
     `;
   }).join('');
+}
+
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  TODAY STATS / GAMIFICATION                                ║
+// ╚═══════════════════════════════════════════════════════════╝
+function getTrainingDays() {
+  // Set of YYYY-MM-DD strings where any log or activity occurred
+  const days = new Set();
+  const toKey = ts => {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  };
+  logs.forEach(l => days.add(toKey(l.timestamp)));
+  activities.forEach(a => days.add(toKey(a.timestamp)));
+  return days;
+}
+
+function computeStreak(daySet) {
+  if (daySet.size === 0) return { current: 0, longest: 0, aliveToday: false };
+  const today = new Date(); today.setHours(0,0,0,0);
+  const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const aliveToday = daySet.has(keyOf(today));
+
+  // Current streak: walk back from today (or yesterday if today not yet trained)
+  let current = 0;
+  let cursor = new Date(today);
+  if (!aliveToday) cursor.setDate(cursor.getDate() - 1);
+  while (daySet.has(keyOf(cursor))) {
+    current++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  // Longest streak: scan all sorted days
+  const sorted = [...daySet].sort();
+  let longest = 0, run = 0, prev = null;
+  for (const k of sorted) {
+    const d = new Date(k + 'T00:00:00');
+    if (prev && (d - prev) === 86400000) run++;
+    else run = 1;
+    if (run > longest) longest = run;
+    prev = d;
+  }
+  return { current, longest, aliveToday };
+}
+
+function startOfWeek(d) {
+  const x = new Date(d); x.setHours(0,0,0,0);
+  const dow = (x.getDay() + 6) % 7; // Mon=0
+  x.setDate(x.getDate() - dow);
+  return x;
+}
+
+function computeTodayStats() {
+  const now = new Date();
+  const weekStart = startOfWeek(now);
+  const lastWeekStart = new Date(weekStart); lastWeekStart.setDate(weekStart.getDate() - 7);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const inRange = (ts, from, toExcl) => {
+    const t = new Date(ts).getTime();
+    return t >= from.getTime() && t < toExcl.getTime();
+  };
+
+  // Sets this week
+  const setsThisWeek = logs.filter(l => inRange(l.timestamp, weekStart, new Date(weekStart.getTime() + 7*86400000))).length;
+
+  // Volume this week vs last week
+  const volIn = (from, toExcl) => logs
+    .filter(l => inRange(l.timestamp, from, toExcl))
+    .reduce((s, l) => s + (parseFloat(l.weight)||0) * (parseInt(l.reps)||0), 0);
+  const volThisWeek = volIn(weekStart, new Date(weekStart.getTime() + 7*86400000));
+  const volLastWeek = volIn(lastWeekStart, weekStart);
+
+  // Days trained this month (lift OR sport)
+  const monthDays = new Set();
+  const addIfMonth = ts => {
+    const d = new Date(ts);
+    if (d >= monthStart && d <= now) monthDays.add(d.toDateString());
+  };
+  logs.forEach(l => addIfMonth(l.timestamp));
+  activities.forEach(a => addIfMonth(a.timestamp));
+
+  // PR count: number of exercises with at least one logged set
+  const exWithLogs = new Set(logs.map(l => l.exerciseId));
+  const prCount = exWithLogs.size;
+
+  return {
+    setsThisWeek,
+    volThisWeek, volLastWeek,
+    daysThisMonth: monthDays.size,
+    prCount,
+  };
+}
+
+function renderTodayStats() {
+  const host = document.getElementById('todayStats');
+  if (!host) return;
+  const dayKeys = getTrainingDays();
+  const totalSessions = dayKeys.size;
+  if (totalSessions === 0) {
+    host.innerHTML = `
+      <div class="streak-card">
+        <div class="streak-flame">○</div>
+        <div class="streak-body">
+          <div class="streak-num"><em>0</em> day streak</div>
+          <div class="streak-label">log a set or activity to start</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const { current, longest, aliveToday } = computeStreak(dayKeys);
+  const stats = computeTodayStats();
+
+  // Streak banner
+  const streakLabel = aliveToday
+    ? 'kept alive today'
+    : (current > 0 ? 'log today to keep it going' : 'rest day · start a new streak');
+  const streakBestHTML = longest > 0
+    ? `<div class="streak-best">best · <em>${longest}</em> day${longest === 1 ? '' : 's'}</div>`
+    : '';
+  const streakHTML = `
+    <div class="streak-card ${current > 0 ? 'alive' : ''}">
+      <div class="streak-flame">${current > 0 ? '🔥' : '○'}</div>
+      <div class="streak-body">
+        <div class="streak-num"><em>${current}</em> day${current === 1 ? '' : 's'}</div>
+        <div class="streak-label">${streakLabel}</div>
+        ${streakBestHTML}
+      </div>
+    </div>
+  `;
+
+  // Volume tile — show this-week volume + delta vs last week
+  let volNumHTML, volDeltaHTML;
+  if (stats.volThisWeek === 0 && stats.volLastWeek === 0) {
+    volNumHTML = `<em>—</em>`;
+    volDeltaHTML = `<div class="stat-tile-delta">no volume yet</div>`;
+  } else {
+    volNumHTML = `<em>${Math.round(stats.volThisWeek).toLocaleString()}</em><span class="unit">${units}</span>`;
+    if (stats.volLastWeek > 0) {
+      const pct = Math.round(((stats.volThisWeek - stats.volLastWeek) / stats.volLastWeek) * 100);
+      if (pct > 0) volDeltaHTML = `<div class="stat-tile-delta up">↑ ${pct}% vs last</div>`;
+      else if (pct < 0) volDeltaHTML = `<div class="stat-tile-delta down">↓ ${Math.abs(pct)}% vs last</div>`;
+      else volDeltaHTML = `<div class="stat-tile-delta">level vs last</div>`;
+    } else {
+      volDeltaHTML = `<div class="stat-tile-delta up">first week</div>`;
+    }
+  }
+
+  const tilesHTML = `
+    <div class="stat-grid">
+      <div class="stat-tile">
+        <div class="stat-tile-label">This week</div>
+        <div class="stat-tile-num"><em>${stats.setsThisWeek}</em><span class="unit">sets</span></div>
+        <div class="stat-tile-delta">${stats.daysThisMonth} day${stats.daysThisMonth === 1 ? '' : 's'} this month</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-label">Volume</div>
+        <div class="stat-tile-num">${volNumHTML}</div>
+        ${volDeltaHTML}
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-label">Records</div>
+        <div class="stat-tile-num"><em>${stats.prCount}</em><span class="unit">PR${stats.prCount === 1 ? '' : 's'}</span></div>
+        <div class="stat-tile-delta">across all lifts</div>
+      </div>
+    </div>
+  `;
+
+  // Level bar — every 10 sessions = a level
+  const level = Math.floor(totalSessions / 10) + 1;
+  const intoLevel = totalSessions % 10;
+  const pct = (intoLevel / 10) * 100;
+  const levelHTML = `
+    <div class="level-bar">
+      <div class="level-row">
+        <div class="level-name">Tier <span class="level-num">${level}</span></div>
+        <div class="level-xp">${intoLevel} / 10 sessions</div>
+      </div>
+      <div class="level-track"><div class="level-fill" style="width: ${pct}%"></div></div>
+    </div>
+  `;
+
+  host.innerHTML = streakHTML + tilesHTML + levelHTML;
 }
 
 // ╔═══════════════════════════════════════════════════════════╗
@@ -2272,9 +2567,9 @@ function renderTrends() {
       <div class="trend-head">
         <div>
           <div class="eyebrow">This week</div>
-          <div class="trend-num">${(latest/1000).toFixed(1)}<span class="unit">k ${units}</span></div>
+          <div class="trend-num">${Math.round(latest).toLocaleString()}<span class="unit">${units}</span></div>
         </div>
-        <div class="trend-delta">8-week total ${(totalVol/1000).toFixed(0)}k</div>
+        <div class="trend-delta">8-week total ${Math.round(totalVol).toLocaleString()} ${units}</div>
       </div>
       <svg class="trend-svg" viewBox="0 0 100 50" preserveAspectRatio="none">${bars}</svg>
       <div class="trend-axis"><span>8w ago</span><span>this week</span></div>
