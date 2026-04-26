@@ -22,6 +22,7 @@
 const CONFIG_SHEET = 'Config';
 const LOGS_SHEET = 'Logs';
 const MEAS_SHEET = 'Measurements';
+const ACTV_SHEET = 'Activities';
 
 function getOrCreateSheet(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -33,6 +34,9 @@ function getOrCreateSheet(name) {
       sheet.setFrozenRows(1);
     } else if (name === MEAS_SHEET) {
       sheet.getRange('A1:D1').setValues([['timestamp', 'type', 'value', 'unit']]);
+      sheet.setFrozenRows(1);
+    } else if (name === ACTV_SHEET) {
+      sheet.getRange('A1:E1').setValues([['timestamp', 'sport', 'durationMin', 'intensity', 'note']]);
       sheet.setFrozenRows(1);
     }
   }
@@ -151,6 +155,48 @@ function deleteMeasurement(timestamp) {
   }
 }
 
+function getActivities() {
+  const sheet = getOrCreateSheet(ACTV_SHEET);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  return data.map(row => {
+    const entry = {
+      timestamp: row[0] instanceof Date ? row[0].toISOString() : row[0],
+      sport: row[1]
+    };
+    if (row[2] !== '' && row[2] != null) entry.durationMin = row[2];
+    if (row[3] !== '' && row[3] != null) entry.intensity = row[3];
+    if (row[4] !== '' && row[4] != null) entry.note = row[4];
+    return entry;
+  });
+}
+
+function addActivity(entry) {
+  const sheet = getOrCreateSheet(ACTV_SHEET);
+  sheet.appendRow([
+    entry.timestamp || new Date().toISOString(),
+    entry.sport,
+    entry.durationMin == null ? '' : entry.durationMin,
+    entry.intensity || '',
+    entry.note || ''
+  ]);
+}
+
+function deleteActivity(timestamp) {
+  const sheet = getOrCreateSheet(ACTV_SHEET);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = data.length - 1; i >= 0; i--) {
+    const val = data[i][0] instanceof Date ? data[i][0].toISOString() : data[i][0];
+    if (val === timestamp) {
+      sheet.deleteRow(i + 2);
+      return;
+    }
+  }
+}
+
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'getData';
   let result;
@@ -159,7 +205,8 @@ function doGet(e) {
     result = {
       config: getConfig(),
       logs: getLogs(),
-      measurements: getMeasurements()
+      measurements: getMeasurements(),
+      activities: getActivities()
     };
   } else {
     result = { error: 'Unknown action' };
@@ -190,6 +237,8 @@ function doPost(e) {
     case 'renameExerciseLogs': renameExerciseLogs(body.exerciseId, body.newName); break;
     case 'addMeasurement': addMeasurement(body.data); break;
     case 'deleteMeasurement': deleteMeasurement(body.timestamp); break;
+    case 'addActivity': addActivity(body.data); break;
+    case 'deleteActivity': deleteActivity(body.timestamp); break;
     default: result = { error: 'Unknown action' };
   }
 
