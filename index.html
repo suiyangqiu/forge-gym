@@ -806,6 +806,7 @@ button, input, select, textarea {
   border-radius: 12px 12px 0 0;
   padding: 22px 22px calc(var(--safe-bottom) + 22px);
   width: 100%; max-width: 520px;
+  box-sizing: border-box;
   animation: slideUp .22s ease;
 }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -814,7 +815,17 @@ button, input, select, textarea {
   background: var(--line2);
   border-radius: 2px;
   margin: 0 auto 18px;
+  position: relative;
+  cursor: grab;
+  touch-action: none;
 }
+.modal-handle::before {
+  content: '';
+  position: absolute;
+  top: -16px; bottom: -10px;
+  left: -80px; right: -80px;
+}
+.modal-handle:active { cursor: grabbing; }
 .modal h3 {
   font-family: var(--serif); font-weight: 400;
   font-size: 24px; letter-spacing: -0.4px;
@@ -836,6 +847,7 @@ button, input, select, textarea {
 }
 .modal-input {
   width: 100%;
+  box-sizing: border-box;
   padding: 12px 14px;
   background: var(--bg2);
   border: 1px solid var(--line);
@@ -844,6 +856,11 @@ button, input, select, textarea {
   font-family: var(--serif);
   font-size: 16px;
   outline: none;
+  min-width: 0;
+}
+.modal-input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
 }
 .modal-input:focus { border-color: var(--accent-dim); }
 .modal-row { display: flex; gap: 10px; }
@@ -901,7 +918,7 @@ button, input, select, textarea {
 /* ─── Sport picker (activity modal) ──────────────────── */
 .sport-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
   gap: 8px;
   margin-top: 6px;
 }
@@ -929,12 +946,14 @@ button, input, select, textarea {
 .sport-label {
   font-family: var(--sans);
   font-size: 9px;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   text-transform: uppercase;
   color: var(--text-dim);
   text-align: center;
   width: 100%;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.2;
 }
 .sport-card.selected .sport-label { color: var(--activity); font-weight: 500; }
@@ -1432,7 +1451,7 @@ let restState = null; // { dayId, exId, target, intervalId, totalSec }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
-const isoDate = (d) => d.toISOString().slice(0,10);
+const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 function fmtDate(ts) {
   const d = new Date(ts);
   return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -2755,6 +2774,45 @@ function makeOverlay() {
 function attachModal(overlay) {
   document.body.appendChild(overlay);
   modalEl = overlay;
+  const modal = overlay.querySelector('.modal');
+  const handle = modal && modal.querySelector('.modal-handle');
+  if (!modal || !handle) return;
+
+  let startY = null, dy = 0, dragging = false;
+  const onStart = (e) => {
+    const t = e.touches ? e.touches[0] : e;
+    startY = t.clientY;
+    dy = 0;
+    dragging = true;
+    modal.style.transition = 'none';
+    if (e.cancelable) e.preventDefault();
+  };
+  const onMove = (e) => {
+    if (!dragging) return;
+    const t = e.touches ? e.touches[0] : e;
+    dy = Math.max(0, t.clientY - startY);
+    modal.style.transform = `translateY(${dy}px)`;
+    overlay.style.background = `rgba(0,0,0,${Math.max(0, 0.4 - dy / 800)})`;
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    modal.style.transition = 'transform .2s ease';
+    if (dy > 80) {
+      modal.style.transform = 'translateY(100%)';
+      setTimeout(() => { closeModal(); }, 180);
+    } else {
+      modal.style.transform = 'translateY(0)';
+      overlay.style.background = '';
+    }
+  };
+  handle.addEventListener('touchstart', onStart, { passive: false });
+  handle.addEventListener('touchmove', onMove, { passive: true });
+  handle.addEventListener('touchend', onEnd);
+  handle.addEventListener('touchcancel', onEnd);
+  handle.addEventListener('mousedown', onStart);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
 }
 function closeModal() { if (modalEl) { modalEl.remove(); modalEl = null; } }
 
