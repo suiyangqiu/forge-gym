@@ -3240,7 +3240,7 @@ function showApiUrlModal() {
       </ol>
       <div class="guide-code-wrap">
         <button class="guide-toggle" onclick="this.nextElementSibling.classList.toggle('open');">Show backend script</button>
-        <pre class="guide-code" id="bsc">${BACKEND_SCRIPT}</pre>
+        <pre class="guide-code" id="bsc">${esc(BACKEND_SCRIPT)}</pre>
         <button class="guide-copy" onclick="navigator.clipboard.writeText(document.getElementById('bsc').textContent);this.textContent='Copied';setTimeout(()=>this.textContent='Copy',1500);">Copy</button>
       </div>
       <div class="guide-note">Your data lives in your own Google Sheet. Nothing is shared.</div>
