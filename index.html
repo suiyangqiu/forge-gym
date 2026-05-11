@@ -3672,7 +3672,7 @@ function rehabExerciseCardHTML(ex) {
           <div class="rehab-target">${esc(target)} · ${todayLogs.length}/${targetSets}</div>
           ${setsLine}
         </div>
-        <button class="ex-edit" onclick="event.stopPropagation();showEditRehabExerciseModal('${ex.id}')">Edit</button>
+        <button class="ex-tool" onclick="event.stopPropagation();showEditRehabExerciseModal('${ex.id}')">Edit</button>
       </div>
       <div class="ex-actions" style="display:flex;gap:8px;margin-top:12px;">
         <button class="modal-btn confirm" style="flex:1;" onclick="showLogRehabModal('${ex.id}')">Log set</button>
