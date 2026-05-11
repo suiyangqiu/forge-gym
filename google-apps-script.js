@@ -23,6 +23,7 @@ const CONFIG_SHEET = 'Config';
 const LOGS_SHEET = 'Logs';
 const MEAS_SHEET = 'Measurements';
 const ACTV_SHEET = 'Activities';
+const REHAB_SHEET = 'RehabLogs';
 
 function getOrCreateSheet(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -37,6 +38,9 @@ function getOrCreateSheet(name) {
       sheet.setFrozenRows(1);
     } else if (name === ACTV_SHEET) {
       sheet.getRange('A1:E1').setValues([['timestamp', 'sport', 'durationMin', 'intensity', 'note']]);
+      sheet.setFrozenRows(1);
+    } else if (name === REHAB_SHEET) {
+      sheet.getRange('A1:I1').setValues([['timestamp', 'routineId', 'exerciseId', 'exerciseName', 'format', 'weight', 'reps', 'durationSec', 'note']]);
       sheet.setFrozenRows(1);
     }
   }
@@ -197,6 +201,56 @@ function deleteActivity(timestamp) {
   }
 }
 
+function getRehabLogs() {
+  const sheet = getOrCreateSheet(REHAB_SHEET);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  return data.map(row => {
+    const entry = {
+      timestamp: row[0] instanceof Date ? row[0].toISOString() : row[0],
+      routineId: row[1],
+      exerciseId: row[2],
+      exerciseName: row[3],
+      format: row[4]
+    };
+    if (row[5] !== '' && row[5] != null) entry.weight = row[5];
+    if (row[6] !== '' && row[6] != null) entry.reps = row[6];
+    if (row[7] !== '' && row[7] != null) entry.durationSec = row[7];
+    if (row[8] !== '' && row[8] != null) entry.note = row[8];
+    return entry;
+  });
+}
+
+function addRehabLog(entry) {
+  const sheet = getOrCreateSheet(REHAB_SHEET);
+  sheet.appendRow([
+    entry.timestamp || new Date().toISOString(),
+    entry.routineId || '',
+    entry.exerciseId || '',
+    entry.exerciseName || '',
+    entry.format || '',
+    entry.weight == null ? '' : entry.weight,
+    entry.reps == null ? '' : entry.reps,
+    entry.durationSec == null ? '' : entry.durationSec,
+    entry.note || ''
+  ]);
+}
+
+function deleteRehabLog(timestamp) {
+  const sheet = getOrCreateSheet(REHAB_SHEET);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = data.length - 1; i >= 0; i--) {
+    const val = data[i][0] instanceof Date ? data[i][0].toISOString() : data[i][0];
+    if (val === timestamp) {
+      sheet.deleteRow(i + 2);
+      return;
+    }
+  }
+}
+
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'getData';
   let result;
@@ -206,7 +260,8 @@ function doGet(e) {
       config: getConfig(),
       logs: getLogs(),
       measurements: getMeasurements(),
-      activities: getActivities()
+      activities: getActivities(),
+      rehabLogs: getRehabLogs()
     };
   } else {
     result = { error: 'Unknown action' };
@@ -239,6 +294,8 @@ function doPost(e) {
     case 'deleteMeasurement': deleteMeasurement(body.timestamp); break;
     case 'addActivity': addActivity(body.data); break;
     case 'deleteActivity': deleteActivity(body.timestamp); break;
+    case 'addRehabLog': addRehabLog(body.data); break;
+    case 'deleteRehabLog': deleteRehabLog(body.timestamp); break;
     default: result = { error: 'Unknown action' };
   }
 

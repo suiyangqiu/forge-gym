@@ -362,6 +362,77 @@ button, input, select, textarea {
 }
 .add-btn:active { border-color: var(--accent); color: var(--accent); }
 
+/* ─── Rehab link on Today ────────────────────────────── */
+.rehab-link-wrap {
+  margin: 26px 22px 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+.rehab-link {
+  width: 100%;
+  display: flex; align-items: baseline; gap: 10px;
+  background: none; border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--sans);
+}
+.rehab-link-label {
+  font-size: 13px; font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.2px;
+}
+.rehab-link-meta {
+  flex: 1;
+  font-family: var(--serif); font-style: italic; font-size: 13px;
+  color: var(--text-dim);
+}
+.rehab-link-arrow {
+  color: var(--text-mute);
+  font-size: 14px;
+}
+.rehab-link:active .rehab-link-label { color: var(--accent); }
+.rehab-link:active .rehab-link-arrow { color: var(--accent); }
+
+/* ─── Rehab format pills ─────────────────────────────── */
+.format-row {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.format-pill {
+  flex: 1; min-width: 84px;
+  padding: 10px 8px;
+  background: none;
+  border: 1px solid var(--line2);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--sans); font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+}
+.format-pill.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.format-pill .format-pill-label { display: block; font-weight: 600; }
+.format-pill .format-pill-sub {
+  display: block; font-family: var(--serif); font-style: italic;
+  font-size: 10px; color: var(--text-mute); margin-top: 2px;
+}
+.format-pill.selected .format-pill-sub { color: var(--accent-dim); }
+
+/* Rehab exercise card meta */
+.rehab-target {
+  font-family: var(--serif); font-style: italic; font-size: 12px;
+  color: var(--text-dim);
+}
+.rehab-last {
+  font-family: var(--sans); font-size: 11px;
+  color: var(--text-mute);
+  letter-spacing: 0.3px;
+  margin-top: 4px;
+}
+
 /* ─── Workout view ───────────────────────────────────── */
 .workout-meta {
   padding: 0 26px 4px;
@@ -646,9 +717,10 @@ button, input, select, textarea {
 .cal-day.empty { cursor: default; }
 .cal-day-bg {
   position: absolute;
-  width: 32px; height: 32px;
-  border-radius: 16px;
-  background: var(--accent-soft);
+  width: 34px; height: 34px;
+  border-radius: 2px;
+  background: transparent;
+  border: 1px solid var(--accent);
   opacity: 0;
 }
 .cal-day.done .cal-day-bg { opacity: 1; }
@@ -664,18 +736,6 @@ button, input, select, textarea {
   background: transparent;
   border: 1px solid var(--accent);
 }
-.cal-day-dots {
-  position: absolute;
-  bottom: 6px; left: 50%;
-  transform: translateX(-50%);
-  display: flex; gap: 3px;
-  pointer-events: none;
-}
-.cal-day-dot {
-  width: 4px; height: 4px; border-radius: 50%;
-}
-.cal-day-dot.lift { background: var(--accent); }
-.cal-day-dot.activity { background: var(--activity); }
 
 .cal-detail { padding: 0 26px; }
 .cal-detail-title {
@@ -1267,6 +1327,13 @@ button, input, select, textarea {
   </div>
   <div class="day-list" id="dayList"></div>
   <button class="add-btn" onclick="showAddDayModal()">+ Add a workout day</button>
+  <div class="rehab-link-wrap">
+    <button class="rehab-link" onclick="navRehab()">
+      <span class="rehab-link-label">Rehab + warm-up</span>
+      <span class="rehab-link-meta" id="rehabLinkMeta">supporting work</span>
+      <span class="rehab-link-arrow">→</span>
+    </button>
+  </div>
 </div>
 
 <!-- ═══ JOURNAL VIEW ═══ -->
@@ -1418,6 +1485,49 @@ button, input, select, textarea {
   <div id="dayDetailContent"></div>
 </div>
 
+<!-- ═══ REHAB LIST (no tabs) ═══ -->
+<div class="view" id="viewRehab">
+  <div class="head">
+    <button class="head-back" onclick="navTab('today', 'back')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+      back
+    </button>
+    <span class="head-eyebrow">rehab + warm-up</span>
+    <span></span>
+  </div>
+  <div class="hero">
+    <div class="hero-kicker">supporting work</div>
+    <div class="hero-title">Quietly <em>healing</em>.</div>
+    <div class="hero-sub" id="rehabSub">Not counted toward streaks or volume.</div>
+  </div>
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="divider-label">Routines</div>
+    <div class="divider-line"></div>
+  </div>
+  <div class="day-list" id="rehabRoutineList"></div>
+  <button class="add-btn" onclick="showAddRehabRoutineModal()">+ Add a rehab routine</button>
+</div>
+
+<!-- ═══ REHAB ROUTINE DETAIL (no tabs) ═══ -->
+<div class="view" id="viewRehabRoutine">
+  <div class="head">
+    <button class="head-back" onclick="navRehab('back')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+      back
+    </button>
+    <span class="head-eyebrow" id="rehabRoutineHeadDate"></span>
+    <button class="head-action" onclick="showAddRehabExerciseModal()">+ Add</button>
+  </div>
+  <div class="hero">
+    <div class="hero-kicker">rehab routine</div>
+    <div class="hero-title" id="rehabRoutineTitle"></div>
+    <div class="hero-sub" id="rehabRoutineSub"></div>
+  </div>
+  <div class="exercise-list" id="rehabExerciseList"></div>
+  <button class="add-btn" onclick="showAddRehabExerciseModal()">+ Add exercise</button>
+</div>
+
 </div>
 
 <!-- Tab bar -->
@@ -1451,11 +1561,16 @@ let logs = [];
 let measurements = [];
 // activity: { timestamp, sport, durationMin?, intensity?, note? }
 let activities = [];
+// rehab log: { timestamp, routineId, exerciseId, exerciseName, format, weight?, reps?, durationSec?, note? }
+// format: 'isometric' (time + weight), 'reps' (reps + weight), 'time' (time only)
+let rehabLogs = [];
 let currentDayId = null;
+let currentRehabRoutineId = null;
 let checkedExercises = new Set(); // session-only
 let API_URL = localStorage.getItem('forge_api_url') || '';
 let theme = localStorage.getItem('forge_theme') || 'system';
 let restTimerSec = parseInt(localStorage.getItem('forge_rest_sec') || '90');
+let restTimerEnabled = localStorage.getItem('forge_rest_enabled') === '1';
 let units = localStorage.getItem('forge_units') || 'kg'; // 'kg' or 'lb'
 
 // Calendar nav state
@@ -1529,21 +1644,29 @@ function loadLocal() {
   try { logs = JSON.parse(localStorage.getItem('forge_logs')) || []; } catch { logs = []; }
   try { measurements = JSON.parse(localStorage.getItem('forge_measurements')) || []; } catch { measurements = []; }
   try { activities = JSON.parse(localStorage.getItem('forge_activities')) || []; } catch { activities = []; }
+  try { rehabLogs = JSON.parse(localStorage.getItem('forge_rehab_logs')) || []; } catch { rehabLogs = []; }
+  if (!config.rehab) config.rehab = { routines: [] };
 }
 function saveLocalLogs() { localStorage.setItem('forge_logs', JSON.stringify(logs)); }
 function saveLocalConfig() { localStorage.setItem('forge_config', JSON.stringify(config)); }
 function saveLocalMeas() { localStorage.setItem('forge_measurements', JSON.stringify(measurements)); }
 function saveLocalActivities() { localStorage.setItem('forge_activities', JSON.stringify(activities)); }
+function saveLocalRehabLogs() { localStorage.setItem('forge_rehab_logs', JSON.stringify(rehabLogs)); }
 
 async function syncFromServer() {
   if (!API_URL) return;
   try {
     const resp = await fetch(API_URL + '?action=getData');
     const data = await resp.json();
-    if (data.config) { config = data.config; saveLocalConfig(); }
+    if (data.config) {
+      config = data.config;
+      if (!config.rehab) config.rehab = { routines: [] };
+      saveLocalConfig();
+    }
     if (data.logs) { logs = data.logs; saveLocalLogs(); }
     if (data.measurements) { measurements = data.measurements; saveLocalMeas(); }
     if (data.activities) { activities = data.activities; saveLocalActivities(); }
+    if (data.rehabLogs) { rehabLogs = data.rehabLogs; saveLocalRehabLogs(); }
   } catch (e) { console.error('Sync failed:', e); }
 }
 async function postAction(payload) {
@@ -1596,12 +1719,24 @@ async function deleteActivityFromServer(timestamp) {
 async function renameExerciseLogsOnServer(exerciseId, newName) {
   postAction({ action: 'renameExerciseLogs', exerciseId, newName });
 }
+async function addRehabLogToServer(entry) {
+  const stamped = { ...entry, timestamp: new Date().toISOString() };
+  rehabLogs.push(stamped);
+  saveLocalRehabLogs();
+  postAction({ action: 'addRehabLog', data: stamped });
+  return stamped;
+}
+async function deleteRehabLogFromServer(timestamp) {
+  rehabLogs = rehabLogs.filter(l => l.timestamp !== timestamp);
+  saveLocalRehabLogs();
+  postAction({ action: 'deleteRehabLog', timestamp });
+}
 
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  NAVIGATION                                                ║
 // ╚═══════════════════════════════════════════════════════════╝
 let currentView = 'today';
-const VIEW_DEPTH = { viewToday: 0, viewJournal: 0, viewTrends: 0, viewYou: 0, viewWorkout: 1, viewDayDetail: 1, viewHistory: 2 };
+const VIEW_DEPTH = { viewToday: 0, viewJournal: 0, viewTrends: 0, viewYou: 0, viewWorkout: 1, viewDayDetail: 1, viewHistory: 2, viewRehab: 1, viewRehabRoutine: 2 };
 let lastViewId = 'viewToday';
 function showView(id, direction) {
   if (!direction) {
@@ -1671,6 +1806,18 @@ function goBackFromHistory() {
     navTab('today', 'back');
   }
 }
+function navRehab(direction) {
+  currentRehabRoutineId = null;
+  document.getElementById('tabbar').classList.add('hidden');
+  showView('viewRehab', direction || 'fwd');
+  renderRehab();
+}
+function navRehabRoutine(routineId) {
+  currentRehabRoutineId = routineId;
+  document.getElementById('tabbar').classList.add('hidden');
+  showView('viewRehabRoutine', 'fwd');
+  renderRehabRoutine();
+}
 
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  TODAY VIEW                                                ║
@@ -1698,6 +1845,16 @@ function renderToday() {
   }
 
   renderTodayStats();
+
+  // Rehab link meta
+  const rehabMeta = document.getElementById('rehabLinkMeta');
+  if (rehabMeta) {
+    const routines = getRehabRoutines();
+    const todayCount = rehabLogs.filter(l => sameDay(new Date(l.timestamp), now)).length;
+    if (routines.length === 0) rehabMeta.textContent = 'supporting work';
+    else if (todayCount > 0) rehabMeta.textContent = `${todayCount} logged today`;
+    else rehabMeta.textContent = `${routines.length} routine${routines.length === 1 ? '' : 's'}`;
+  }
 
   const list = document.getElementById('dayList');
   if (dayCount === 0) {
@@ -2059,6 +2216,7 @@ async function undoSet(timestamp, dayId) {
 // ║  REST TIMER                                                ║
 // ╚═══════════════════════════════════════════════════════════╝
 function restStart(dayId, exId) {
+  if (!restTimerEnabled) return;
   restStop();
   const total = restTimerSec;
   const target = Date.now() + total * 1000;
@@ -2371,19 +2529,12 @@ function renderJournal() {
       const ds = `${yr}-${pad(mo+1)}-${pad(d)}`;
       const hasLift = !!map[ds];
       const hasAct = !!actMap[ds];
+      const noted = hasLift || hasAct;
       const isToday = today.getFullYear() === yr && today.getMonth() === mo && today.getDate() === d;
-      let dots = '';
-      if (hasLift || hasAct) {
-        dots = `<span class="cal-day-dots">`
-          + (hasLift ? `<span class="cal-day-dot lift"></span>` : '')
-          + (hasAct ? `<span class="cal-day-dot activity"></span>` : '')
-          + `</span>`;
-      }
       grid += `
-        <button class="cal-day ${hasLift ? 'done' : ''} ${isToday ? 'today' : ''}" onclick="navDayDetail('${ds}')">
+        <button class="cal-day ${noted ? 'done' : ''} ${isToday ? 'today' : ''}" onclick="navDayDetail('${ds}')">
           <span class="cal-day-bg"></span>
           <span class="cal-day-num">${d}</span>
-          ${dots}
         </button>
       `;
     }
@@ -2437,16 +2588,27 @@ function renderJournal() {
   }
 }
 
+function rehabLogsByDate() {
+  const map = {};
+  rehabLogs.forEach(l => {
+    const ds = isoDate(new Date(l.timestamp));
+    (map[ds] = map[ds] || []).push(l);
+  });
+  return map;
+}
+
 function renderDayDetail(ds) {
   const map = logsByDate();
   const actMap = activitiesByDate();
+  const rehMap = rehabLogsByDate();
   const dayLogs = map[ds] || [];
   const dayActs = actMap[ds] || [];
+  const dayReh = rehMap[ds] || [];
   const d = new Date(ds);
   const label = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   document.getElementById('dayDetailDate').textContent = label;
 
-  if (dayLogs.length === 0 && dayActs.length === 0) {
+  if (dayLogs.length === 0 && dayActs.length === 0 && dayReh.length === 0) {
     document.getElementById('dayDetailTitle').innerHTML = `Rest <em>day</em>`;
     document.getElementById('dayDetailSub').textContent = 'Nothing was logged on this day.';
     document.getElementById('dayDetailContent').innerHTML = `
@@ -2465,16 +2627,23 @@ function renderDayDetail(ds) {
     document.getElementById('dayDetailTitle').innerHTML = `<em>${esc(dayName)}</em>`;
     const subParts = [`${dayLogs.length} set${dayLogs.length === 1 ? '' : 's'} · ${vol.toLocaleString()} ${units} moved`];
     if (dayActs.length > 0) subParts.push(`${dayActs.length} activit${dayActs.length === 1 ? 'y' : 'ies'}`);
+    if (dayReh.length > 0) subParts.push(`${dayReh.length} rehab`);
     document.getElementById('dayDetailSub').textContent = subParts.join(' · ') + '.';
-  } else {
+  } else if (dayActs.length > 0) {
     const first = dayActs[0];
     document.getElementById('dayDetailTitle').innerHTML = dayActs.length === 1
       ? `<em>${esc(first.sport)}</em>`
       : `<em>${dayActs.length} activities</em>`;
     const totalMin = dayActs.reduce((s, a) => s + (parseInt(a.durationMin) || 0), 0);
-    document.getElementById('dayDetailSub').textContent = totalMin > 0
-      ? `${totalMin} minutes of training.`
-      : `Sport session logged.`;
+    const subParts = [];
+    if (totalMin > 0) subParts.push(`${totalMin} minutes of training`);
+    else subParts.push('Sport session logged');
+    if (dayReh.length > 0) subParts.push(`${dayReh.length} rehab`);
+    document.getElementById('dayDetailSub').textContent = subParts.join(' · ') + '.';
+  } else {
+    // Rehab-only day
+    document.getElementById('dayDetailTitle').innerHTML = `<em>Rehab</em>`;
+    document.getElementById('dayDetailSub').textContent = `${dayReh.length} rehab entr${dayReh.length === 1 ? 'y' : 'ies'}. Not counted toward streaks.`;
   }
 
   let html = '';
@@ -2525,10 +2694,34 @@ function renderDayDetail(ds) {
     html += `</div>`;
   }
 
+  // Rehab section
+  if (dayReh.length > 0) {
+    if (dayLogs.length > 0 || dayActs.length > 0) {
+      html += `<div class="divider" style="margin:20px 26px;"><div class="divider-line"></div><div class="divider-label">Rehab + warm-up</div><div class="divider-line"></div></div>`;
+    }
+    html += `<div class="meas-list">`;
+    dayReh.forEach(l => {
+      const val = formatRehabLogValue(l);
+      const meta = [val, l.note].filter(Boolean).join(' · ');
+      html += `
+        <div class="activity-row">
+          <span class="activity-icon" style="font-family:var(--serif);font-style:italic;font-size:14px;color:var(--text-dim);">rh</span>
+          <div class="activity-info">
+            <div class="activity-name">${esc(l.exerciseName || 'Rehab')}</div>
+            ${meta ? `<div class="activity-meta">${esc(meta)}</div>` : ''}
+          </div>
+          <button class="activity-del" onclick="confirmDeleteRehabLog('${l.timestamp}', '${esc((l.exerciseName || 'Rehab') + ' · ' + val)}')">Remove</button>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
   // Add activity button
   html += `
-    <div style="padding:0 26px;margin-top:18px;">
-      <button class="modal-btn cancel" style="width:100%;" onclick="showAddActivityModal('${ds}')">＋ Log activity</button>
+    <div style="padding:0 26px;margin-top:18px;display:flex;gap:8px;">
+      <button class="modal-btn cancel" style="flex:1;" onclick="showAddActivityModal('${ds}')">＋ Log activity</button>
+      <button class="modal-btn cancel" style="flex:1;" onclick="navRehab()">Rehab →</button>
     </div>`;
 
   document.getElementById('dayDetailContent').innerHTML = html;
@@ -2736,8 +2929,15 @@ function renderYou() {
     </div>
     <div class="settings-row flat">
       <span class="settings-label-text">Rest timer</span>
-      <button class="settings-action" onclick="showRestTimerModal()">${restTimerSec}s</button>
+      <div class="theme-seg">
+        <button class="${restTimerEnabled ? '' : 'active'}" onclick="setRestTimerEnabled(false)">Off</button>
+        <button class="${restTimerEnabled ? 'active' : ''}" onclick="setRestTimerEnabled(true)">On</button>
+      </div>
     </div>
+    ${restTimerEnabled ? `<div class="settings-row flat">
+      <span class="settings-label-text">Rest duration</span>
+      <button class="settings-action" onclick="showRestTimerModal()">${restTimerSec}s</button>
+    </div>` : ''}
   `;
 
   // Days
@@ -2760,6 +2960,13 @@ function renderYou() {
 function setUnits(u) {
   units = u;
   localStorage.setItem('forge_units', u);
+  renderYou();
+}
+
+function setRestTimerEnabled(on) {
+  restTimerEnabled = !!on;
+  localStorage.setItem('forge_rest_enabled', on ? '1' : '0');
+  if (!on) restStop();
   renderYou();
 }
 
@@ -2786,15 +2993,16 @@ async function manualSync() {
 
 async function pushLocalToSheet() {
   if (!API_URL) { toast('Not connected'); return; }
-  const total = logs.length + activities.length + measurements.length;
+  const total = logs.length + activities.length + measurements.length + rehabLogs.length;
   if (total === 0) { toast('Nothing local to push'); return; }
-  if (!confirm(`Push ${logs.length} logs, ${activities.length} activities, ${measurements.length} measurements to the Sheet? This will append, possibly creating duplicates if entries already exist.`)) return;
+  if (!confirm(`Push ${logs.length} logs, ${activities.length} activities, ${measurements.length} measurements, ${rehabLogs.length} rehab logs to the Sheet? This will append, possibly creating duplicates if entries already exist.`)) return;
   toast(`Pushing ${total}...`);
   let done = 0;
   await postAction({ action: 'saveConfig', data: config });
   for (const l of logs) { await postAction({ action: 'addLog', data: l }); done++; }
   for (const a of activities) { await postAction({ action: 'addActivity', data: a }); done++; }
   for (const m of measurements) { await postAction({ action: 'addMeasurement', data: m }); done++; }
+  for (const r of rehabLogs) { await postAction({ action: 'addRehabLog', data: r }); done++; }
   toast(`Pushed ${done} entries`);
 }
 
@@ -3330,6 +3538,554 @@ function confirmDeleteActivity(timestamp, sport) {
   ]);
 }
 
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  REHAB / WARM-UP                                           ║
+// ╚═══════════════════════════════════════════════════════════╝
+function getRehabRoutines() {
+  return (config.rehab && config.rehab.routines) || [];
+}
+function getRehabExercise(exId) {
+  for (const r of getRehabRoutines()) {
+    const ex = (r.exercises || []).find(x => x.id === exId);
+    if (ex) return { routine: r, exercise: ex };
+  }
+  return null;
+}
+function fmtSec(sec) {
+  const n = parseInt(sec);
+  if (!n) return '';
+  if (n >= 60 && n % 60 === 0) return `${n / 60} min`;
+  if (n >= 60) return `${Math.floor(n / 60)}:${pad(n % 60)}`;
+  return `${n}s`;
+}
+function formatRehabTarget(ex) {
+  if (!ex) return '';
+  const sets = parseInt(ex.sets) || 1;
+  const setLbl = sets > 1 ? `${sets} × ` : '';
+  if (ex.format === 'isometric') {
+    const d = ex.targetSec ? fmtSec(ex.targetSec) : '';
+    const w = ex.targetWeight ? `${ex.targetWeight}${units}` : '';
+    const body = [d, w].filter(Boolean).join(' @ ');
+    return body ? `${setLbl}${body}` : `${sets} set${sets === 1 ? '' : 's'} · isometric`;
+  }
+  if (ex.format === 'reps') {
+    const r = ex.targetReps ? `${ex.targetReps} reps` : '';
+    const w = ex.targetWeight ? `${ex.targetWeight}${units}` : '';
+    const body = [r, w].filter(Boolean).join(' @ ');
+    return body ? `${setLbl}${body}` : `${sets} set${sets === 1 ? '' : 's'} · reps`;
+  }
+  if (ex.format === 'time') {
+    const d = ex.targetSec ? fmtSec(ex.targetSec) : '';
+    return d ? `${setLbl}${d}` : `${sets} set${sets === 1 ? '' : 's'} · hold`;
+  }
+  return '';
+}
+function formatRehabLogValue(log) {
+  if (!log) return '';
+  if (log.format === 'isometric') {
+    const d = log.durationSec ? fmtSec(log.durationSec) : '';
+    const w = log.weight ? `${log.weight}${units}` : '';
+    return [d, w].filter(Boolean).join(' @ ');
+  }
+  if (log.format === 'reps') {
+    const r = log.reps ? `${log.reps} reps` : '';
+    const w = log.weight ? `${log.weight}${units}` : '';
+    return [r, w].filter(Boolean).join(' @ ');
+  }
+  if (log.format === 'time') {
+    return log.durationSec ? fmtSec(log.durationSec) : '';
+  }
+  return '';
+}
+function getTodayRehabLogsFor(exId) {
+  const today = new Date();
+  return rehabLogs.filter(l => l.exerciseId === exId && sameDay(new Date(l.timestamp), today));
+}
+function getLastRehabLogFor(exId) {
+  const sorted = rehabLogs.filter(l => l.exerciseId === exId).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  return sorted[0] || null;
+}
+
+function renderRehab() {
+  const routines = getRehabRoutines();
+  const sub = document.getElementById('rehabSub');
+  if (sub) {
+    const exCount = routines.reduce((s, r) => s + (r.exercises ? r.exercises.length : 0), 0);
+    sub.textContent = routines.length === 0
+      ? 'Add a routine for warm-ups, isometrics, or mobility.'
+      : `${routines.length} routine${routines.length === 1 ? '' : 's'} · ${exCount} exercise${exCount === 1 ? '' : 's'} · not counted toward streaks or volume.`;
+  }
+  const list = document.getElementById('rehabRoutineList');
+  if (routines.length === 0) {
+    list.innerHTML = `<div class="empty">No rehab routines yet.</div>`;
+    return;
+  }
+  list.innerHTML = routines.map((r, i) => {
+    const exCount = r.exercises ? r.exercises.length : 0;
+    return `
+      <div class="day-card" onclick="navRehabRoutine('${r.id}')" data-rehab-id="${r.id}">
+        <div class="day-card-num">${pad(i + 1)}</div>
+        <div class="day-card-name">${esc(r.name)}</div>
+        <div class="day-card-meta">${exCount} exercise${exCount === 1 ? '' : 's'}</div>
+        <div class="day-card-arrow">→</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderRehabRoutine() {
+  const routine = getRehabRoutines().find(r => r.id === currentRehabRoutineId);
+  if (!routine) { navRehab('back'); return; }
+  const now = new Date();
+  document.getElementById('rehabRoutineHeadDate').textContent = now.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('rehabRoutineTitle').innerHTML = `<em>${esc(routine.name)}</em>`;
+  const exes = routine.exercises || [];
+  const todayCount = exes.reduce((s, ex) => s + getTodayRehabLogsFor(ex.id).length, 0);
+  document.getElementById('rehabRoutineSub').textContent = exes.length === 0
+    ? 'Add an exercise to begin.'
+    : todayCount > 0
+      ? `${todayCount} logged today across ${exes.length} exercise${exes.length === 1 ? '' : 's'}.`
+      : `${exes.length} exercise${exes.length === 1 ? '' : 's'} ready.`;
+  const list = document.getElementById('rehabExerciseList');
+  if (exes.length === 0) { list.innerHTML = ''; return; }
+  list.innerHTML = exes.map(ex => rehabExerciseCardHTML(ex)).join('');
+}
+
+function rehabExerciseCardHTML(ex) {
+  const todayLogs = getTodayRehabLogsFor(ex.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const last = getLastRehabLogFor(ex.id);
+  const target = formatRehabTarget(ex);
+  const targetSets = parseInt(ex.sets) || 1;
+  const done = todayLogs.length >= targetSets;
+  let setsLine = '';
+  if (todayLogs.length > 0) {
+    setsLine = `<div class="rehab-last">Today: ${todayLogs.map(l => esc(formatRehabLogValue(l)) || '·').join(' · ')}</div>`;
+  } else if (last) {
+    const when = fmtDateShort(last.timestamp);
+    setsLine = `<div class="rehab-last">Last: ${esc(formatRehabLogValue(last))} <span style="color:var(--text-mute);">· ${when}</span></div>`;
+  }
+  return `
+    <div class="exercise-card ${done ? 'done' : ''}" id="rex-${ex.id}">
+      <div class="ex-head">
+        <div>
+          <div class="ex-name">${esc(ex.name)}</div>
+          <div class="rehab-target">${esc(target)} · ${todayLogs.length}/${targetSets}</div>
+          ${setsLine}
+        </div>
+        <button class="ex-edit" onclick="event.stopPropagation();showEditRehabExerciseModal('${ex.id}')">Edit</button>
+      </div>
+      <div class="ex-actions" style="display:flex;gap:8px;margin-top:12px;">
+        <button class="modal-btn confirm" style="flex:1;" onclick="showLogRehabModal('${ex.id}')">Log set</button>
+        ${todayLogs.length > 0 ? `<button class="modal-btn cancel" style="flex:0 0 auto;" onclick="confirmUndoLastRehab('${ex.id}')">Undo</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// ─── Rehab modals ───
+function showAddRehabRoutineModal() {
+  showInputModal('New rehab routine', 'Name', 'e.g. Toe MTP, Left knee', '', (val) => {
+    const name = val.trim();
+    if (!name) return;
+    if (!config.rehab) config.rehab = { routines: [] };
+    config.rehab.routines.push({ id: uid(), name, exercises: [] });
+    saveConfigToServer();
+    closeModal();
+    renderRehab();
+    toast('Routine added');
+  });
+}
+
+function showEditRehabRoutineModal(routineId) {
+  const r = getRehabRoutines().find(x => x.id === routineId);
+  if (!r) return;
+  closeModal();
+  const overlay = makeOverlay();
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `
+    <div class="modal-handle"></div>
+    <h3>Edit <em>routine</em></h3>
+    <div class="modal-field">
+      <label class="modal-label">Name</label>
+      <input class="modal-input" id="rrName" value="${esc(r.name)}">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn danger" onclick="confirmDeleteRehabRoutine('${r.id}')">Delete</button>
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="rrSave">Save</button>
+    </div>
+  `;
+  overlay.appendChild(m);
+  attachModal(overlay);
+  m.querySelector('#rrSave').onclick = () => {
+    const name = m.querySelector('#rrName').value.trim();
+    if (!name) return;
+    r.name = name;
+    saveConfigToServer();
+    closeModal();
+    if (currentView === 'today') renderRehab();
+    renderRehab();
+    if (currentRehabRoutineId === r.id) renderRehabRoutine();
+    toast('Renamed');
+  };
+}
+
+function confirmDeleteRehabRoutine(routineId) {
+  const r = getRehabRoutines().find(x => x.id === routineId);
+  if (!r) return;
+  showModal('Delete routine', `Remove "${r.name}" and all its exercises? Past logs are kept.`, [
+    { label: 'Cancel', cls: 'cancel', action: closeModal },
+    { label: 'Delete', cls: 'danger', action: () => {
+      config.rehab.routines = config.rehab.routines.filter(x => x.id !== routineId);
+      saveConfigToServer();
+      closeModal();
+      navRehab('back');
+      toast('Routine removed');
+    }}
+  ]);
+}
+
+function rehabFormatPicker(selected) {
+  const opts = [
+    { key: 'isometric', label: 'Isometric', sub: 'time + weight' },
+    { key: 'reps', label: 'Reps', sub: 'reps + weight' },
+    { key: 'time', label: 'Hold / mobility', sub: 'time only' },
+  ];
+  return `
+    <div class="format-row" id="formatRow">
+      ${opts.map(o => `
+        <button type="button" class="format-pill ${o.key === selected ? 'selected' : ''}" data-format="${o.key}">
+          <span class="format-pill-label">${o.label}</span>
+          <span class="format-pill-sub">${o.sub}</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function showAddRehabExerciseModal() {
+  if (!currentRehabRoutineId) return;
+  closeModal();
+  const overlay = makeOverlay();
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `
+    <div class="modal-handle"></div>
+    <h3>Add <em>rehab exercise</em></h3>
+    <div class="modal-field">
+      <label class="modal-label">Name</label>
+      <input class="modal-input" id="rxName" placeholder="e.g. Big toe isometric">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Format</label>
+      ${rehabFormatPicker('isometric')}
+    </div>
+    <div class="modal-row">
+      <div class="modal-field">
+        <label class="modal-label">Sets</label>
+        <input class="modal-input" id="rxSets" type="number" inputmode="numeric" value="3">
+      </div>
+      <div class="modal-field" id="rxTimeField">
+        <label class="modal-label">Hold (sec)</label>
+        <input class="modal-input" id="rxSec" type="number" inputmode="numeric" placeholder="e.g. 45">
+      </div>
+      <div class="modal-field" id="rxRepsField" style="display:none;">
+        <label class="modal-label">Target reps</label>
+        <input class="modal-input" id="rxReps" type="number" inputmode="numeric" placeholder="e.g. 10">
+      </div>
+    </div>
+    <div class="modal-field" id="rxWeightField">
+      <label class="modal-label">Weight (${units}, optional)</label>
+      <input class="modal-input" id="rxWeight" type="number" inputmode="decimal" step="0.5" placeholder="e.g. 20">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="rxConfirm">Add</button>
+    </div>
+  `;
+  overlay.appendChild(m);
+  attachModal(overlay);
+  m.querySelector('#rxName').focus();
+
+  let selectedFormat = 'isometric';
+  const applyFormatUI = () => {
+    const timeF = m.querySelector('#rxTimeField');
+    const repsF = m.querySelector('#rxRepsField');
+    const weightF = m.querySelector('#rxWeightField');
+    timeF.style.display = (selectedFormat === 'isometric' || selectedFormat === 'time') ? '' : 'none';
+    repsF.style.display = (selectedFormat === 'reps') ? '' : 'none';
+    weightF.style.display = (selectedFormat === 'time') ? 'none' : '';
+  };
+  m.querySelectorAll('#formatRow .format-pill').forEach(p => {
+    p.onclick = () => {
+      m.querySelectorAll('#formatRow .format-pill').forEach(x => x.classList.remove('selected'));
+      p.classList.add('selected');
+      selectedFormat = p.dataset.format;
+      applyFormatUI();
+    };
+  });
+  applyFormatUI();
+
+  m.querySelector('#rxConfirm').onclick = () => {
+    const name = m.querySelector('#rxName').value.trim();
+    if (!name) { toast('Enter a name'); return; }
+    const sets = parseInt(m.querySelector('#rxSets').value) || 1;
+    const ex = { id: uid(), name, format: selectedFormat, sets };
+    if (selectedFormat === 'isometric' || selectedFormat === 'time') {
+      const sec = parseInt(m.querySelector('#rxSec').value);
+      if (sec) ex.targetSec = sec;
+    }
+    if (selectedFormat === 'reps') {
+      const r = parseInt(m.querySelector('#rxReps').value);
+      if (r) ex.targetReps = r;
+    }
+    if (selectedFormat !== 'time') {
+      const w = parseFloat(m.querySelector('#rxWeight').value);
+      if (!isNaN(w) && w > 0) ex.targetWeight = w;
+    }
+    const routine = getRehabRoutines().find(r => r.id === currentRehabRoutineId);
+    if (!routine) return;
+    if (!routine.exercises) routine.exercises = [];
+    routine.exercises.push(ex);
+    saveConfigToServer();
+    closeModal();
+    renderRehabRoutine();
+    toast('Exercise added');
+  };
+}
+
+function showEditRehabExerciseModal(exId) {
+  const found = getRehabExercise(exId);
+  if (!found) return;
+  const { routine, exercise: ex } = found;
+  closeModal();
+  const overlay = makeOverlay();
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `
+    <div class="modal-handle"></div>
+    <h3>Edit <em>exercise</em></h3>
+    <div class="modal-field">
+      <label class="modal-label">Name</label>
+      <input class="modal-input" id="rxName" value="${esc(ex.name)}">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Format</label>
+      ${rehabFormatPicker(ex.format || 'isometric')}
+    </div>
+    <div class="modal-row">
+      <div class="modal-field">
+        <label class="modal-label">Sets</label>
+        <input class="modal-input" id="rxSets" type="number" inputmode="numeric" value="${parseInt(ex.sets) || 1}">
+      </div>
+      <div class="modal-field" id="rxTimeField">
+        <label class="modal-label">Hold (sec)</label>
+        <input class="modal-input" id="rxSec" type="number" inputmode="numeric" value="${ex.targetSec || ''}">
+      </div>
+      <div class="modal-field" id="rxRepsField">
+        <label class="modal-label">Target reps</label>
+        <input class="modal-input" id="rxReps" type="number" inputmode="numeric" value="${ex.targetReps || ''}">
+      </div>
+    </div>
+    <div class="modal-field" id="rxWeightField">
+      <label class="modal-label">Weight (${units}, optional)</label>
+      <input class="modal-input" id="rxWeight" type="number" inputmode="decimal" step="0.5" value="${ex.targetWeight || ''}">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn danger" onclick="confirmDeleteRehabExercise('${ex.id}')">Delete</button>
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="rxSave">Save</button>
+    </div>
+  `;
+  overlay.appendChild(m);
+  attachModal(overlay);
+
+  let selectedFormat = ex.format || 'isometric';
+  const applyFormatUI = () => {
+    m.querySelector('#rxTimeField').style.display = (selectedFormat === 'isometric' || selectedFormat === 'time') ? '' : 'none';
+    m.querySelector('#rxRepsField').style.display = (selectedFormat === 'reps') ? '' : 'none';
+    m.querySelector('#rxWeightField').style.display = (selectedFormat === 'time') ? 'none' : '';
+  };
+  m.querySelectorAll('#formatRow .format-pill').forEach(p => {
+    p.onclick = () => {
+      m.querySelectorAll('#formatRow .format-pill').forEach(x => x.classList.remove('selected'));
+      p.classList.add('selected');
+      selectedFormat = p.dataset.format;
+      applyFormatUI();
+    };
+  });
+  applyFormatUI();
+
+  m.querySelector('#rxSave').onclick = () => {
+    const name = m.querySelector('#rxName').value.trim();
+    if (!name) return;
+    ex.name = name;
+    ex.format = selectedFormat;
+    ex.sets = parseInt(m.querySelector('#rxSets').value) || 1;
+    delete ex.targetSec;
+    delete ex.targetReps;
+    delete ex.targetWeight;
+    if (selectedFormat === 'isometric' || selectedFormat === 'time') {
+      const sec = parseInt(m.querySelector('#rxSec').value);
+      if (sec) ex.targetSec = sec;
+    }
+    if (selectedFormat === 'reps') {
+      const r = parseInt(m.querySelector('#rxReps').value);
+      if (r) ex.targetReps = r;
+    }
+    if (selectedFormat !== 'time') {
+      const w = parseFloat(m.querySelector('#rxWeight').value);
+      if (!isNaN(w) && w > 0) ex.targetWeight = w;
+    }
+    saveConfigToServer();
+    closeModal();
+    renderRehabRoutine();
+    toast('Saved');
+  };
+}
+
+function confirmDeleteRehabExercise(exId) {
+  const found = getRehabExercise(exId);
+  if (!found) return;
+  showModal('Delete exercise', `Remove "${found.exercise.name}"? Past logs are kept.`, [
+    { label: 'Cancel', cls: 'cancel', action: closeModal },
+    { label: 'Delete', cls: 'danger', action: () => {
+      found.routine.exercises = (found.routine.exercises || []).filter(x => x.id !== exId);
+      saveConfigToServer();
+      closeModal();
+      renderRehabRoutine();
+      toast('Removed');
+    }}
+  ]);
+}
+
+function showLogRehabModal(exId) {
+  const found = getRehabExercise(exId);
+  if (!found) return;
+  const ex = found.exercise;
+  const last = getLastRehabLogFor(exId);
+  closeModal();
+  const overlay = makeOverlay();
+  const m = document.createElement('div');
+  m.className = 'modal';
+
+  let fields = '';
+  if (ex.format === 'isometric') {
+    fields = `
+      <div class="modal-row">
+        <div class="modal-field">
+          <label class="modal-label">Hold (sec)</label>
+          <input class="modal-input" id="lgSec" type="number" inputmode="numeric" value="${last && last.durationSec ? last.durationSec : (ex.targetSec || '')}">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Weight (${units})</label>
+          <input class="modal-input" id="lgWeight" type="number" inputmode="decimal" step="0.5" value="${last && last.weight ? last.weight : (ex.targetWeight || '')}">
+        </div>
+      </div>
+    `;
+  } else if (ex.format === 'reps') {
+    fields = `
+      <div class="modal-row">
+        <div class="modal-field">
+          <label class="modal-label">Reps</label>
+          <input class="modal-input" id="lgReps" type="number" inputmode="numeric" value="${last && last.reps ? last.reps : (ex.targetReps || '')}">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Weight (${units})</label>
+          <input class="modal-input" id="lgWeight" type="number" inputmode="decimal" step="0.5" value="${last && last.weight ? last.weight : (ex.targetWeight || '')}">
+        </div>
+      </div>
+    `;
+  } else {
+    fields = `
+      <div class="modal-field">
+        <label class="modal-label">Hold (sec)</label>
+        <input class="modal-input" id="lgSec" type="number" inputmode="numeric" value="${last && last.durationSec ? last.durationSec : (ex.targetSec || '')}">
+      </div>
+    `;
+  }
+
+  m.innerHTML = `
+    <div class="modal-handle"></div>
+    <h3>Log <em>${esc(ex.name)}</em></h3>
+    <div class="modal-sub">${esc(formatRehabTarget(ex) || 'rehab')}</div>
+    ${fields}
+    <div class="modal-field">
+      <label class="modal-label">Note (optional)</label>
+      <input class="modal-input" id="lgNote" placeholder="e.g. felt easier today">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="lgConfirm">Log</button>
+    </div>
+  `;
+  overlay.appendChild(m);
+  attachModal(overlay);
+
+  m.querySelector('#lgConfirm').onclick = async () => {
+    const entry = {
+      routineId: found.routine.id,
+      exerciseId: ex.id,
+      exerciseName: ex.name,
+      format: ex.format,
+    };
+    if (ex.format === 'isometric') {
+      const sec = parseInt(m.querySelector('#lgSec').value);
+      const w = parseFloat(m.querySelector('#lgWeight').value);
+      if (!sec) { toast('Enter a duration'); return; }
+      entry.durationSec = sec;
+      if (!isNaN(w) && w > 0) entry.weight = w;
+    } else if (ex.format === 'reps') {
+      const r = parseInt(m.querySelector('#lgReps').value);
+      const w = parseFloat(m.querySelector('#lgWeight').value);
+      if (!r) { toast('Enter reps'); return; }
+      entry.reps = r;
+      if (!isNaN(w) && w > 0) entry.weight = w;
+    } else {
+      const sec = parseInt(m.querySelector('#lgSec').value);
+      if (!sec) { toast('Enter a duration'); return; }
+      entry.durationSec = sec;
+    }
+    const note = m.querySelector('#lgNote').value.trim();
+    if (note) entry.note = note;
+    await addRehabLogToServer(entry);
+    closeModal();
+    renderRehabRoutine();
+    toast(`Logged ${formatRehabLogValue({ ...entry })}`);
+  };
+}
+
+function confirmUndoLastRehab(exId) {
+  const todayLogs = getTodayRehabLogsFor(exId).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  if (todayLogs.length === 0) return;
+  const last = todayLogs[0];
+  showModal('Undo last set', `Remove "${formatRehabLogValue(last)}"?`, [
+    { label: 'Cancel', cls: 'cancel', action: closeModal },
+    { label: 'Remove', cls: 'danger', action: async () => {
+      await deleteRehabLogFromServer(last.timestamp);
+      closeModal();
+      renderRehabRoutine();
+      if (selectedDayDetail) renderDayDetail(selectedDayDetail);
+      toast('Removed');
+    }}
+  ]);
+}
+
+function confirmDeleteRehabLog(timestamp, label) {
+  showModal('Delete entry', `Remove "${label}"?`, [
+    { label: 'Cancel', cls: 'cancel', action: closeModal },
+    { label: 'Delete', cls: 'danger', action: async () => {
+      await deleteRehabLogFromServer(timestamp);
+      closeModal();
+      if (selectedDayDetail) renderDayDetail(selectedDayDetail);
+      if (lastViewId === 'viewRehabRoutine') renderRehabRoutine();
+      else if (lastViewId === 'viewRehab') renderRehab();
+      toast('Removed');
+    }}
+  ]);
+}
+
 // ─── API URL modal ───
 function showApiUrlModal() {
   closeModal();
@@ -3384,7 +4140,7 @@ function showApiUrlModal() {
 
 // ─── Data import/export ───
 function exportData() {
-  const data = JSON.stringify({ config, logs, measurements, activities }, null, 2);
+  const data = JSON.stringify({ config, logs, measurements, activities, rehabLogs }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3402,10 +4158,15 @@ function importData() {
     const text = await file.text();
     try {
       const data = JSON.parse(text);
-      if (data.config) { config = data.config; saveConfigToServer(); }
+      if (data.config) {
+        config = data.config;
+        if (!config.rehab) config.rehab = { routines: [] };
+        saveConfigToServer();
+      }
       if (data.logs) { logs = data.logs; saveLocalLogs(); }
       if (data.measurements) { measurements = data.measurements; saveLocalMeas(); }
       if (data.activities) { activities = data.activities; saveLocalActivities(); }
+      if (data.rehabLogs) { rehabLogs = data.rehabLogs; saveLocalRehabLogs(); }
       toast('Data imported');
       renderToday();
       renderYou();
@@ -3419,13 +4180,17 @@ function importData() {
 // ╚═══════════════════════════════════════════════════════════╝
 let lpTimer = null;
 let lpTriggered = false;
+function lpHandle(card) {
+  if (card.dataset.rehabId) showEditRehabRoutineModal(card.dataset.rehabId);
+  else if (card.dataset.dayId) showEditDayModal(card.dataset.dayId);
+}
 document.addEventListener('touchstart', (e) => {
   const dayCard = e.target.closest('.day-card');
   if (!dayCard) return;
   lpTriggered = false;
   lpTimer = setTimeout(() => {
     lpTriggered = true;
-    showEditDayModal(dayCard.dataset.dayId);
+    lpHandle(dayCard);
   }, 500);
 }, { passive: true });
 document.addEventListener('touchmove', () => clearTimeout(lpTimer), { passive: true });
@@ -3435,14 +4200,14 @@ document.addEventListener('touchend', (e) => {
 });
 document.addEventListener('contextmenu', (e) => {
   const dayCard = e.target.closest('.day-card');
-  if (dayCard) { e.preventDefault(); showEditDayModal(dayCard.dataset.dayId); }
+  if (dayCard) { e.preventDefault(); lpHandle(dayCard); }
 });
 
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  BACKEND SCRIPT (embedded for the in-app guide)            ║
 // ╚═══════════════════════════════════════════════════════════╝
-const BACKEND_SCRIPT = `const CONFIG_SHEET='Config',LOGS_SHEET='Logs',MEAS_SHEET='Measurements',ACTV_SHEET='Activities';
-function getOrCreateSheet(n){const s=SpreadsheetApp.getActiveSpreadsheet();let h=s.getSheetByName(n);if(!h){h=s.insertSheet(n);if(n===LOGS_SHEET){h.getRange('A1:H1').setValues([['timestamp','dayId','exerciseId','exerciseName','weight','reps','setIndex','rpe']]);h.setFrozenRows(1);}else if(n===MEAS_SHEET){h.getRange('A1:D1').setValues([['timestamp','type','value','unit']]);h.setFrozenRows(1);}else if(n===ACTV_SHEET){h.getRange('A1:E1').setValues([['timestamp','sport','durationMin','intensity','note']]);h.setFrozenRows(1);}}return h;}
+const BACKEND_SCRIPT = `const CONFIG_SHEET='Config',LOGS_SHEET='Logs',MEAS_SHEET='Measurements',ACTV_SHEET='Activities',REHAB_SHEET='RehabLogs';
+function getOrCreateSheet(n){const s=SpreadsheetApp.getActiveSpreadsheet();let h=s.getSheetByName(n);if(!h){h=s.insertSheet(n);if(n===LOGS_SHEET){h.getRange('A1:H1').setValues([['timestamp','dayId','exerciseId','exerciseName','weight','reps','setIndex','rpe']]);h.setFrozenRows(1);}else if(n===MEAS_SHEET){h.getRange('A1:D1').setValues([['timestamp','type','value','unit']]);h.setFrozenRows(1);}else if(n===ACTV_SHEET){h.getRange('A1:E1').setValues([['timestamp','sport','durationMin','intensity','note']]);h.setFrozenRows(1);}else if(n===REHAB_SHEET){h.getRange('A1:I1').setValues([['timestamp','routineId','exerciseId','exerciseName','format','weight','reps','durationSec','note']]);h.setFrozenRows(1);}}return h;}
 function getConfig(){const v=getOrCreateSheet(CONFIG_SHEET).getRange('A1').getValue();if(!v)return null;try{return JSON.parse(v);}catch{return null;}}
 function saveConfig(c){getOrCreateSheet(CONFIG_SHEET).getRange('A1').setValue(JSON.stringify(c));}
 function getLogs(){const s=getOrCreateSheet(LOGS_SHEET),lr=s.getLastRow();if(lr<2)return[];const lc=Math.max(6,s.getLastColumn());const d=s.getRange(2,1,lr-1,lc).getValues();return d.map(r=>{const o={timestamp:r[0]instanceof Date?r[0].toISOString():r[0],dayId:r[1],exerciseId:r[2],exerciseName:r[3],weight:r[4],reps:r[5]};if(r[6]!==''&&r[6]!=null)o.setIndex=r[6];if(r[7]!==''&&r[7]!=null)o.rpe=r[7];return o;});}
@@ -3455,8 +4220,11 @@ function deleteMeasurement(t){const s=getOrCreateSheet(MEAS_SHEET),lr=s.getLastR
 function getActivities(){const s=getOrCreateSheet(ACTV_SHEET),lr=s.getLastRow();if(lr<2)return[];const d=s.getRange(2,1,lr-1,5).getValues();return d.map(r=>{const o={timestamp:r[0]instanceof Date?r[0].toISOString():r[0],sport:r[1]};if(r[2]!==''&&r[2]!=null)o.durationMin=r[2];if(r[3]!==''&&r[3]!=null)o.intensity=r[3];if(r[4]!==''&&r[4]!=null)o.note=r[4];return o;});}
 function addActivity(e){getOrCreateSheet(ACTV_SHEET).appendRow([e.timestamp||new Date().toISOString(),e.sport,e.durationMin==null?'':e.durationMin,e.intensity||'',e.note||'']);}
 function deleteActivity(t){const s=getOrCreateSheet(ACTV_SHEET),lr=s.getLastRow();if(lr<2)return;const d=s.getRange(2,1,lr-1,1).getValues();for(let i=d.length-1;i>=0;i--){const v=d[i][0]instanceof Date?d[i][0].toISOString():d[i][0];if(v===t)return void s.deleteRow(i+2);}}
-function doGet(e){const a=(e&&e.parameter&&e.parameter.action)||'getData';const r=a==='getData'?{config:getConfig(),logs:getLogs(),measurements:getMeasurements(),activities:getActivities()}:{error:'Unknown action'};return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}
-function doPost(e){let b;try{b=JSON.parse(e.postData.contents);}catch{return ContentService.createTextOutput(JSON.stringify({error:'Invalid JSON'})).setMimeType(ContentService.MimeType.JSON);}let r={ok:true};switch(b.action){case'saveConfig':saveConfig(b.data);break;case'addLog':addLog(b.data);break;case'deleteLog':deleteLog(b.timestamp);break;case'renameExerciseLogs':renameExerciseLogs(b.exerciseId,b.newName);break;case'addMeasurement':addMeasurement(b.data);break;case'deleteMeasurement':deleteMeasurement(b.timestamp);break;case'addActivity':addActivity(b.data);break;case'deleteActivity':deleteActivity(b.timestamp);break;default:r={error:'Unknown action'};}return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}`;
+function getRehabLogs(){const s=getOrCreateSheet(REHAB_SHEET),lr=s.getLastRow();if(lr<2)return[];const d=s.getRange(2,1,lr-1,9).getValues();return d.map(r=>{const o={timestamp:r[0]instanceof Date?r[0].toISOString():r[0],routineId:r[1],exerciseId:r[2],exerciseName:r[3],format:r[4]};if(r[5]!==''&&r[5]!=null)o.weight=r[5];if(r[6]!==''&&r[6]!=null)o.reps=r[6];if(r[7]!==''&&r[7]!=null)o.durationSec=r[7];if(r[8]!==''&&r[8]!=null)o.note=r[8];return o;});}
+function addRehabLog(e){getOrCreateSheet(REHAB_SHEET).appendRow([e.timestamp||new Date().toISOString(),e.routineId||'',e.exerciseId||'',e.exerciseName||'',e.format||'',e.weight==null?'':e.weight,e.reps==null?'':e.reps,e.durationSec==null?'':e.durationSec,e.note||'']);}
+function deleteRehabLog(t){const s=getOrCreateSheet(REHAB_SHEET),lr=s.getLastRow();if(lr<2)return;const d=s.getRange(2,1,lr-1,1).getValues();for(let i=d.length-1;i>=0;i--){const v=d[i][0]instanceof Date?d[i][0].toISOString():d[i][0];if(v===t)return void s.deleteRow(i+2);}}
+function doGet(e){const a=(e&&e.parameter&&e.parameter.action)||'getData';const r=a==='getData'?{config:getConfig(),logs:getLogs(),measurements:getMeasurements(),activities:getActivities(),rehabLogs:getRehabLogs()}:{error:'Unknown action'};return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}
+function doPost(e){let b;try{b=JSON.parse(e.postData.contents);}catch{return ContentService.createTextOutput(JSON.stringify({error:'Invalid JSON'})).setMimeType(ContentService.MimeType.JSON);}let r={ok:true};switch(b.action){case'saveConfig':saveConfig(b.data);break;case'addLog':addLog(b.data);break;case'deleteLog':deleteLog(b.timestamp);break;case'renameExerciseLogs':renameExerciseLogs(b.exerciseId,b.newName);break;case'addMeasurement':addMeasurement(b.data);break;case'deleteMeasurement':deleteMeasurement(b.timestamp);break;case'addActivity':addActivity(b.data);break;case'deleteActivity':deleteActivity(b.timestamp);break;case'addRehabLog':addRehabLog(b.data);break;case'deleteRehabLog':deleteRehabLog(b.timestamp);break;default:r={error:'Unknown action'};}return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}`;
 
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  BOOT                                                      ║
