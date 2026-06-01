@@ -24,6 +24,7 @@ const LOGS_SHEET = 'Logs';
 const MEAS_SHEET = 'Measurements';
 const ACTV_SHEET = 'Activities';
 const REHAB_SHEET = 'RehabLogs';
+const STATUS_SHEET = 'StatusDays';
 
 function getOrCreateSheet(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -41,6 +42,9 @@ function getOrCreateSheet(name) {
       sheet.setFrozenRows(1);
     } else if (name === REHAB_SHEET) {
       sheet.getRange('A1:I1').setValues([['timestamp', 'routineId', 'exerciseId', 'exerciseName', 'format', 'weight', 'reps', 'durationSec', 'note']]);
+      sheet.setFrozenRows(1);
+    } else if (name === STATUS_SHEET) {
+      sheet.getRange('A1:E1').setValues([['timestamp', 'date', 'type', 'note', 'auto']]);
       sheet.setFrozenRows(1);
     }
   }
@@ -251,6 +255,59 @@ function deleteRehabLog(timestamp) {
   }
 }
 
+// A status day bridges a streak across a non-training day.
+// type: 'rest' | 'injured' | 'sick' | 'other'. One entry per date (latest wins).
+function getStatusDays() {
+  const sheet = getOrCreateSheet(STATUS_SHEET);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  return data.map(row => {
+    const entry = {
+      timestamp: row[0] instanceof Date ? row[0].toISOString() : row[0],
+      date: row[1] instanceof Date ? Utilities.formatDate(row[1], Session.getScriptTimeZone(), 'yyyy-MM-dd') : row[1],
+      type: row[2]
+    };
+    if (row[3] !== '' && row[3] != null) entry.note = row[3];
+    entry.auto = row[4] === true || row[4] === 'true' || row[4] === 'TRUE';
+    return entry;
+  });
+}
+
+function addStatusDay(entry) {
+  const sheet = getOrCreateSheet(STATUS_SHEET);
+  // One entry per date: drop any existing row for the same day first
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const data = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    for (let i = data.length - 1; i >= 0; i--) {
+      const val = data[i][0] instanceof Date ? Utilities.formatDate(data[i][0], Session.getScriptTimeZone(), 'yyyy-MM-dd') : data[i][0];
+      if (val === entry.date) sheet.deleteRow(i + 2);
+    }
+  }
+  sheet.appendRow([
+    entry.timestamp || new Date().toISOString(),
+    entry.date || '',
+    entry.type || 'rest',
+    entry.note || '',
+    entry.auto === true
+  ]);
+}
+
+function deleteStatusDay(timestamp) {
+  const sheet = getOrCreateSheet(STATUS_SHEET);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = data.length - 1; i >= 0; i--) {
+    const val = data[i][0] instanceof Date ? data[i][0].toISOString() : data[i][0];
+    if (val === timestamp) {
+      sheet.deleteRow(i + 2);
+      return;
+    }
+  }
+}
+
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'getData';
   let result;
@@ -261,7 +318,8 @@ function doGet(e) {
       logs: getLogs(),
       measurements: getMeasurements(),
       activities: getActivities(),
-      rehabLogs: getRehabLogs()
+      rehabLogs: getRehabLogs(),
+      statusDays: getStatusDays()
     };
   } else {
     result = { error: 'Unknown action' };
@@ -296,6 +354,8 @@ function doPost(e) {
     case 'deleteActivity': deleteActivity(body.timestamp); break;
     case 'addRehabLog': addRehabLog(body.data); break;
     case 'deleteRehabLog': deleteRehabLog(body.timestamp); break;
+    case 'addStatusDay': addStatusDay(body.data); break;
+    case 'deleteStatusDay': deleteStatusDay(body.timestamp); break;
     default: result = { error: 'Unknown action' };
   }
 

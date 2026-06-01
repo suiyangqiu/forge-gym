@@ -730,6 +730,11 @@ button, input, select, textarea {
   color: var(--text-dim); font-weight: 400;
 }
 .cal-day.done .cal-day-num { color: var(--accent); }
+.cal-day.rest .cal-day-bg {
+  opacity: 1;
+  border: 1px dashed var(--line2);
+}
+.cal-day.rest .cal-day-num { color: var(--text-mute); }
 .cal-day.today .cal-day-num { color: var(--accent); font-style: italic; font-weight: 500; }
 .cal-day.selected .cal-day-bg {
   opacity: 1;
@@ -920,6 +925,10 @@ button, input, select, textarea {
 .modal-sub {
   font-family: var(--serif); font-style: italic; font-size: 13px;
   color: var(--text-dim); margin-bottom: 18px;
+}
+.modal-hint {
+  font-family: var(--serif); font-style: italic; font-size: 12px;
+  color: var(--text-dim); margin-top: 8px;
 }
 .modal-field { margin-bottom: 14px; }
 .modal-label {
@@ -1333,6 +1342,11 @@ button, input, select, textarea {
       <span class="rehab-link-meta" id="rehabLinkMeta">supporting work</span>
       <span class="rehab-link-arrow">→</span>
     </button>
+    <button class="rehab-link" onclick="showStatusDayModal()" style="margin-top:10px;">
+      <span class="rehab-link-label">Rest / injured day</span>
+      <span class="rehab-link-meta" id="statusLinkMeta">keep your streak alive</span>
+      <span class="rehab-link-arrow">＋</span>
+    </button>
   </div>
 </div>
 
@@ -1564,6 +1578,9 @@ let activities = [];
 // rehab log: { timestamp, routineId, exerciseId, exerciseName, format, weight?, reps?, durationSec?, note? }
 // format: 'isometric' (time + weight), 'reps' (reps + weight), 'time' (time only)
 let rehabLogs = [];
+// status day: { timestamp, date: 'YYYY-MM-DD', type: 'rest'|'injured'|'sick'|'other', note?, auto? }
+// Bridges a streak across a non-training day. 'rest' draws from the weekly allowance; injured/sick/other are unlimited.
+let statusDays = [];
 let currentDayId = null;
 let currentRehabRoutineId = null;
 let checkedExercises = new Set(); // session-only
@@ -1572,6 +1589,7 @@ let theme = localStorage.getItem('forge_theme') || 'system';
 let restTimerSec = parseInt(localStorage.getItem('forge_rest_sec') || '90');
 let restTimerEnabled = localStorage.getItem('forge_rest_enabled') === '1';
 let units = localStorage.getItem('forge_units') || 'kg'; // 'kg' or 'lb'
+let restAllowance = parseInt(localStorage.getItem('forge_rest_allowance') ?? '1'); // auto rest days per week (Mon-start)
 
 // Calendar nav state
 let calMonthOffset = 0; // 0 = current month
@@ -1645,6 +1663,7 @@ function loadLocal() {
   try { measurements = JSON.parse(localStorage.getItem('forge_measurements')) || []; } catch { measurements = []; }
   try { activities = JSON.parse(localStorage.getItem('forge_activities')) || []; } catch { activities = []; }
   try { rehabLogs = JSON.parse(localStorage.getItem('forge_rehab_logs')) || []; } catch { rehabLogs = []; }
+  try { statusDays = JSON.parse(localStorage.getItem('forge_status_days')) || []; } catch { statusDays = []; }
   if (!config.rehab) config.rehab = { routines: [] };
 }
 function saveLocalLogs() { localStorage.setItem('forge_logs', JSON.stringify(logs)); }
@@ -1652,6 +1671,7 @@ function saveLocalConfig() { localStorage.setItem('forge_config', JSON.stringify
 function saveLocalMeas() { localStorage.setItem('forge_measurements', JSON.stringify(measurements)); }
 function saveLocalActivities() { localStorage.setItem('forge_activities', JSON.stringify(activities)); }
 function saveLocalRehabLogs() { localStorage.setItem('forge_rehab_logs', JSON.stringify(rehabLogs)); }
+function saveLocalStatusDays() { localStorage.setItem('forge_status_days', JSON.stringify(statusDays)); }
 
 async function syncFromServer() {
   if (!API_URL) return;
@@ -1667,6 +1687,7 @@ async function syncFromServer() {
     if (data.measurements) { measurements = data.measurements; saveLocalMeas(); }
     if (data.activities) { activities = data.activities; saveLocalActivities(); }
     if (data.rehabLogs) { rehabLogs = data.rehabLogs; saveLocalRehabLogs(); }
+    if (data.statusDays) { statusDays = data.statusDays; saveLocalStatusDays(); }
   } catch (e) { console.error('Sync failed:', e); }
 }
 async function postAction(payload) {
@@ -1730,6 +1751,20 @@ async function deleteRehabLogFromServer(timestamp) {
   rehabLogs = rehabLogs.filter(l => l.timestamp !== timestamp);
   saveLocalRehabLogs();
   postAction({ action: 'deleteRehabLog', timestamp });
+}
+async function addStatusDayToServer(entry) {
+  const stamped = { ...entry, timestamp: entry.timestamp || new Date().toISOString() };
+  // One status entry per date: replace any existing entry for that day
+  statusDays = statusDays.filter(s => s.date !== stamped.date);
+  statusDays.push(stamped);
+  saveLocalStatusDays();
+  postAction({ action: 'addStatusDay', data: stamped });
+  return stamped;
+}
+async function deleteStatusDayFromServer(timestamp) {
+  statusDays = statusDays.filter(s => s.timestamp !== timestamp);
+  saveLocalStatusDays();
+  postAction({ action: 'deleteStatusDay', timestamp });
 }
 
 // ╔═══════════════════════════════════════════════════════════╗
@@ -1856,6 +1891,23 @@ function renderToday() {
     else rehabMeta.textContent = `${routines.length} routine${routines.length === 1 ? '' : 's'}`;
   }
 
+  // Status (rest / injured) link meta
+  const statusMeta = document.getElementById('statusLinkMeta');
+  if (statusMeta) {
+    const todayStatus = statusDayMap()[isoDate(now)];
+    const STATUS_LABEL = { rest: 'rest day', injured: 'injured', sick: 'sick', other: 'day off' };
+    if (todayStatus) {
+      statusMeta.textContent = `today: ${STATUS_LABEL[todayStatus.type] || 'rest day'}`;
+    } else if (restAllowance > 0) {
+      const wk = weekKeyOf(now);
+      const usedRest = statusDays.filter(s => s.type === 'rest' && weekKeyOf(new Date((s.date || isoDate(new Date(s.timestamp))) + 'T00:00:00')) === wk).length;
+      const left = Math.max(0, restAllowance - usedRest);
+      statusMeta.textContent = `${left} rest day${left === 1 ? '' : 's'} left this week`;
+    } else {
+      statusMeta.textContent = 'keep your streak alive';
+    }
+  }
+
   const list = document.getElementById('dayList');
   if (dayCount === 0) {
     list.innerHTML = `<div class="empty">No workout days yet.</div>`;
@@ -1889,32 +1941,54 @@ function getTrainingDays() {
   return days;
 }
 
-function computeStreak(daySet) {
-  if (daySet.size === 0) return { current: 0, longest: 0, aliveToday: false };
+// Map of YYYY-MM-DD -> status entry (one per day; latest wins)
+function statusDayMap() {
+  const map = {};
+  statusDays.forEach(s => {
+    const date = s.date || isoDate(new Date(s.timestamp));
+    map[date] = s;
+  });
+  return map;
+}
+// Set of dates that carry a rest/injured/sick/other entry
+function getStatusDaySet() {
+  return new Set(Object.keys(statusDayMap()));
+}
+
+// Status days BRIDGE a streak (keep it alive across a gap) but do NOT add to the count.
+// trainingSet = days actually trained; statusSet = rest/injured/sick/other days.
+function computeStreak(trainingSet, statusSet) {
+  statusSet = statusSet || new Set();
+  if (trainingSet.size === 0) return { current: 0, longest: 0, aliveToday: false, bridgedToday: false };
   const today = new Date(); today.setHours(0,0,0,0);
   const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const aliveToday = daySet.has(keyOf(today));
+  const todayKey = keyOf(today);
+  const trainedToday = trainingSet.has(todayKey);
+  const bridgedToday = statusSet.has(todayKey);
 
-  // Current streak: walk back from today (or yesterday if today not yet trained)
+  // Current streak: walk back from today; grace for today if nothing logged for it yet
   let current = 0;
   let cursor = new Date(today);
-  if (!aliveToday) cursor.setDate(cursor.getDate() - 1);
-  while (daySet.has(keyOf(cursor))) {
-    current++;
+  if (!trainedToday && !bridgedToday) cursor.setDate(cursor.getDate() - 1);
+  while (true) {
+    const k = keyOf(cursor);
+    if (trainingSet.has(k)) current++;          // trained -> counts
+    else if (statusSet.has(k)) { /* rest/injured/sick -> bridge, no count */ }
+    else break;                                  // true gap -> streak ends
     cursor.setDate(cursor.getDate() - 1);
   }
 
-  // Longest streak: scan all sorted days
-  const sorted = [...daySet].sort();
+  // Longest streak: maximal runs of consecutive training-or-status days, valued by training days
+  const allKeys = [...new Set([...trainingSet, ...statusSet])].sort();
   let longest = 0, run = 0, prev = null;
-  for (const k of sorted) {
+  for (const k of allKeys) {
     const d = new Date(k + 'T00:00:00');
-    if (prev && (d - prev) === 86400000) run++;
-    else run = 1;
+    if (!(prev && (d - prev) === 86400000)) run = 0; // gap -> new run
+    if (trainingSet.has(k)) run++;
     if (run > longest) longest = run;
     prev = d;
   }
-  return { current, longest, aliveToday };
+  return { current, longest, aliveToday: trainedToday, bridgedToday };
 }
 
 function startOfWeek(d) {
@@ -1922,6 +1996,55 @@ function startOfWeek(d) {
   const dow = (x.getDay() + 6) % 7; // Mon=0
   x.setDate(x.getDate() - dow);
   return x;
+}
+// Monday-start week key (the Monday's YYYY-MM-DD), used for the rest-day allowance
+function weekKeyOf(date) { return isoDate(startOfWeek(date)); }
+
+// Auto-fill missed training days as 'rest' days, up to the weekly allowance, so a live
+// streak survives the gap. Walks back from yesterday; only commits if the gap reconnects
+// to a training/status day (the streak anchor) before the weekly budget runs out.
+// Idempotent: filled days become anchors on the next run. Returns true if anything changed.
+function autoFillRestDays() {
+  if (!(restAllowance > 0)) return false;
+  const trainingSet = getTrainingDays();
+  if (trainingSet.size === 0) return false;
+  const statusSet = getStatusDaySet();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Existing 'rest'-type entries already consume that week's budget
+  const restPerWeek = {};
+  statusDays.forEach(s => {
+    if (s.type === 'rest') {
+      const wk = weekKeyOf(new Date((s.date || isoDate(new Date(s.timestamp))) + 'T00:00:00'));
+      restPerWeek[wk] = (restPerWeek[wk] || 0) + 1;
+    }
+  });
+
+  const candidates = [];
+  let cursor = new Date(today); cursor.setDate(cursor.getDate() - 1); // start at yesterday
+  let anchorReached = false;
+  for (let i = 0; i < 21; i++) { // safety window (~3 weeks); older streaks are already dead
+    const k = isoDate(cursor);
+    if (trainingSet.has(k) || statusSet.has(k)) { anchorReached = true; break; }
+    const wk = weekKeyOf(cursor);
+    const used = (restPerWeek[wk] || 0) + candidates.filter(c => c.wk === wk).length;
+    if (used < restAllowance) {
+      candidates.push({ date: k, wk, dateObj: new Date(cursor) });
+      cursor.setDate(cursor.getDate() - 1);
+    } else {
+      break; // budget exhausted before the gap closes -> streak genuinely breaks here
+    }
+  }
+  if (!anchorReached || candidates.length === 0) return false;
+
+  candidates.forEach(c => {
+    const ts = new Date(c.dateObj.getFullYear(), c.dateObj.getMonth(), c.dateObj.getDate(), 12, 0, 0).toISOString();
+    const entry = { timestamp: ts, date: c.date, type: 'rest', note: '', auto: true };
+    statusDays.push(entry);
+    if (API_URL) postAction({ action: 'addStatusDay', data: entry });
+  });
+  saveLocalStatusDays();
+  return true;
 }
 
 function computeTodayStats() {
@@ -1984,13 +2107,24 @@ function renderTodayStats() {
     return;
   }
 
-  const { current, longest, aliveToday } = computeStreak(dayKeys);
+  const statusKeys = getStatusDaySet();
+  const { current, longest, aliveToday, bridgedToday } = computeStreak(dayKeys, statusKeys);
   const stats = computeTodayStats();
 
   // Streak banner
-  const streakLabel = aliveToday
-    ? 'kept alive today'
-    : (current > 0 ? 'log today to keep it going' : 'rest day · start a new streak');
+  const STATUS_LABEL = { rest: 'rest day', injured: 'injured', sick: 'sick', other: 'day off' };
+  const todayStatus = statusDayMap()[isoDate(new Date())];
+  let streakLabel;
+  if (aliveToday) {
+    streakLabel = 'kept alive today';
+  } else if (bridgedToday && todayStatus) {
+    const lbl = STATUS_LABEL[todayStatus.type] || 'rest day';
+    streakLabel = current > 0 ? `${lbl} · streak preserved` : lbl;
+  } else if (current > 0) {
+    streakLabel = 'log today to keep it going';
+  } else {
+    streakLabel = 'rest day · start a new streak';
+  }
   const streakBestHTML = longest > 0
     ? `<div class="streak-best">best · <em>${longest}</em> day${longest === 1 ? '' : 's'}</div>`
     : '';
@@ -2471,6 +2605,7 @@ function activitiesByDate() {
   });
   return map;
 }
+function statusByDate() { return statusDayMap(); }
 
 function calMonthShift(delta) {
   calMonthOffset += delta;
@@ -2491,6 +2626,7 @@ function renderJournal() {
   // Map of dates -> logs / activities for THIS month
   const map = logsByDate();
   const actMap = activitiesByDate();
+  const statMap = statusByDate();
   let sessionCount = 0, totalVol = 0, actCount = 0;
   Object.entries(map).forEach(([ds, ls]) => {
     const d = new Date(ds);
@@ -2530,9 +2666,11 @@ function renderJournal() {
       const hasLift = !!map[ds];
       const hasAct = !!actMap[ds];
       const noted = hasLift || hasAct;
+      const statusEntry = statMap[ds];
+      const restCls = (!noted && statusEntry) ? `rest rest-${statusEntry.type}` : '';
       const isToday = today.getFullYear() === yr && today.getMonth() === mo && today.getDate() === d;
       grid += `
-        <button class="cal-day ${noted ? 'done' : ''} ${isToday ? 'today' : ''}" onclick="navDayDetail('${ds}')">
+        <button class="cal-day ${noted ? 'done' : ''} ${restCls} ${isToday ? 'today' : ''}" onclick="navDayDetail('${ds}')">
           <span class="cal-day-bg"></span>
           <span class="cal-day-num">${d}</span>
         </button>
@@ -2604,16 +2742,42 @@ function renderDayDetail(ds) {
   const dayLogs = map[ds] || [];
   const dayActs = actMap[ds] || [];
   const dayReh = rehMap[ds] || [];
+  const dayStatus = statusByDate()[ds] || null;
+  const STATUS_INFO = { rest: { label: 'Rest day', icon: '☾' }, injured: { label: 'Injured', icon: '✚' }, sick: { label: 'Sick', icon: '🤒' }, other: { label: 'Day off', icon: '·' } };
   const d = new Date(ds);
   const label = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   document.getElementById('dayDetailDate').textContent = label;
 
   if (dayLogs.length === 0 && dayActs.length === 0 && dayReh.length === 0) {
+    if (dayStatus) {
+      const info = STATUS_INFO[dayStatus.type] || STATUS_INFO.rest;
+      document.getElementById('dayDetailTitle').innerHTML = `<em>${esc(info.label)}</em>`;
+      const subBits = [dayStatus.auto ? 'Auto-filled rest day' : 'Logged manually', 'streak preserved'];
+      document.getElementById('dayDetailSub').textContent = subBits.join(' · ') + '.';
+      const noteHTML = dayStatus.note ? `<div class="activity-meta" style="margin-top:4px;">${esc(dayStatus.note)}</div>` : '';
+      document.getElementById('dayDetailContent').innerHTML = `
+        <div class="meas-list">
+          <div class="activity-row">
+            <span class="activity-icon" style="font-style:normal;">${info.icon}</span>
+            <div class="activity-info">
+              <div class="activity-name">${esc(info.label)}</div>
+              ${noteHTML}
+            </div>
+            <button class="activity-del" onclick="confirmDeleteStatusDay('${dayStatus.timestamp}', '${esc(info.label)}')">Remove</button>
+          </div>
+        </div>
+        <div style="padding:0 26px;margin-top:18px;display:flex;gap:8px;">
+          <button class="modal-btn cancel" style="flex:1;" onclick="showStatusDayModal('${ds}')">Edit reason</button>
+          <button class="modal-btn cancel" style="flex:1;" onclick="showAddActivityModal('${ds}')">＋ Log activity</button>
+        </div>`;
+      return;
+    }
     document.getElementById('dayDetailTitle').innerHTML = `Rest <em>day</em>`;
     document.getElementById('dayDetailSub').textContent = 'Nothing was logged on this day.';
     document.getElementById('dayDetailContent').innerHTML = `
-      <div style="padding:0 26px;margin-top:14px;">
-        <button class="modal-btn cancel" style="width:100%;" onclick="showAddActivityModal('${ds}')">＋ Log activity</button>
+      <div style="padding:0 26px;margin-top:14px;display:flex;gap:8px;">
+        <button class="modal-btn cancel" style="flex:1;" onclick="showStatusDayModal('${ds}')">＋ Rest / injured</button>
+        <button class="modal-btn cancel" style="flex:1;" onclick="showAddActivityModal('${ds}')">＋ Log activity</button>
       </div>`;
     return;
   }
@@ -2715,6 +2879,22 @@ function renderDayDetail(ds) {
       `;
     });
     html += `</div>`;
+  }
+
+  // Status (rest / injured) section - shown when a status entry coexists with logged work
+  if (dayStatus) {
+    const info = STATUS_INFO[dayStatus.type] || STATUS_INFO.rest;
+    html += `<div class="divider" style="margin:20px 26px;"><div class="divider-line"></div><div class="divider-label">Recovery</div><div class="divider-line"></div></div>`;
+    html += `<div class="meas-list">
+        <div class="activity-row">
+          <span class="activity-icon" style="font-style:normal;">${info.icon}</span>
+          <div class="activity-info">
+            <div class="activity-name">${esc(info.label)}</div>
+            ${dayStatus.note ? `<div class="activity-meta">${esc(dayStatus.note)}</div>` : ''}
+          </div>
+          <button class="activity-del" onclick="confirmDeleteStatusDay('${dayStatus.timestamp}', '${esc(info.label)}')">Remove</button>
+        </div>
+      </div>`;
   }
 
   // Add activity button
@@ -2938,6 +3118,11 @@ function renderYou() {
       <span class="settings-label-text">Rest duration</span>
       <button class="settings-action" onclick="showRestTimerModal()">${restTimerSec}s</button>
     </div>` : ''}
+    <div class="settings-row flat">
+      <span class="settings-label-text">Rest days / week
+        <span class="settings-value">· auto-fills a missed day to keep your streak</span></span>
+      <button class="settings-action" onclick="showRestAllowanceModal()">${restAllowance}</button>
+    </div>
   `;
 
   // Days
@@ -2983,6 +3168,20 @@ function showRestTimerModal() {
   }, 'number');
 }
 
+function showRestAllowanceModal() {
+  closeModal();
+  showInputModal('Rest day allowance', 'Auto rest days per week (0–7). The first missed training day each week is filled as a rest day so your streak survives; miss more and the streak resets.', 'days', restAllowance, (v) => {
+    const n = parseInt(v);
+    if (isNaN(n) || n < 0 || n > 7) { toast('Enter 0–7 days'); return; }
+    restAllowance = n;
+    localStorage.setItem('forge_rest_allowance', String(n));
+    closeModal();
+    renderYou();
+    if (currentView === 'today') renderToday();
+    toast('Rest allowance updated');
+  }, 'number');
+}
+
 async function manualSync() {
   toast('Syncing...');
   await syncFromServer();
@@ -2993,9 +3192,9 @@ async function manualSync() {
 
 async function pushLocalToSheet() {
   if (!API_URL) { toast('Not connected'); return; }
-  const total = logs.length + activities.length + measurements.length + rehabLogs.length;
+  const total = logs.length + activities.length + measurements.length + rehabLogs.length + statusDays.length;
   if (total === 0) { toast('Nothing local to push'); return; }
-  if (!confirm(`Push ${logs.length} logs, ${activities.length} activities, ${measurements.length} measurements, ${rehabLogs.length} rehab logs to the Sheet? This will append, possibly creating duplicates if entries already exist.`)) return;
+  if (!confirm(`Push ${logs.length} logs, ${activities.length} activities, ${measurements.length} measurements, ${rehabLogs.length} rehab logs, ${statusDays.length} rest/status days to the Sheet? This will append, possibly creating duplicates if entries already exist.`)) return;
   toast(`Pushing ${total}...`);
   let done = 0;
   await postAction({ action: 'saveConfig', data: config });
@@ -3003,6 +3202,7 @@ async function pushLocalToSheet() {
   for (const a of activities) { await postAction({ action: 'addActivity', data: a }); done++; }
   for (const m of measurements) { await postAction({ action: 'addMeasurement', data: m }); done++; }
   for (const r of rehabLogs) { await postAction({ action: 'addRehabLog', data: r }); done++; }
+  for (const s of statusDays) { await postAction({ action: 'addStatusDay', data: s }); done++; }
   toast(`Pushed ${done} entries`);
 }
 
@@ -3531,6 +3731,95 @@ function confirmDeleteActivity(timestamp, sport) {
     { label: 'Delete', cls: 'danger', action: async () => {
       await deleteActivityFromServer(timestamp);
       closeModal();
+      if (currentView === 'journal') renderJournal();
+      if (selectedDayDetail) renderDayDetail(selectedDayDetail);
+      toast('Removed');
+    }}
+  ]);
+}
+
+// ── Rest / injured / sick days ──
+const STATUS_TYPES = [
+  { id: 'rest', label: 'Rest', icon: '☾', note: 'Draws from your weekly rest allowance.' },
+  { id: 'injured', label: 'Injured', icon: '✚', note: 'Always preserves your streak, no limit.' },
+  { id: 'sick', label: 'Sick', icon: '🤒', note: 'Always preserves your streak, no limit.' },
+  { id: 'other', label: 'Other', icon: '·', note: 'Always preserves your streak, no limit.' },
+];
+
+function showStatusDayModal(presetDate) {
+  closeModal();
+  const overlay = makeOverlay();
+  const m = document.createElement('div');
+  m.className = 'modal';
+  const dateStr = presetDate || isoDate(new Date());
+  const existing = statusDayMap()[dateStr];
+  m.innerHTML = `
+    <div class="modal-handle"></div>
+    <h3>Rest / <em>recovery</em> day</h3>
+    <div class="modal-sub">Log a day you can't train. Your streak stays alive - injured and sick days never count against you.</div>
+    <div class="modal-field">
+      <label class="modal-label">Reason</label>
+      <div class="intensity-row" id="statusTypeRow">
+        ${STATUS_TYPES.map(t => `<button type="button" class="intensity-pill ${existing && existing.type === t.id ? 'selected' : (!existing && t.id === 'rest' ? 'selected' : '')}" data-type="${t.id}"><span style="font-style:normal;">${t.icon}</span> ${t.label}</button>`).join('')}
+      </div>
+      <div class="modal-hint" id="statusTypeHint"></div>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Date</label>
+      <input class="modal-input" id="statusDate" type="date" value="${dateStr}">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Note (optional)</label>
+      <input class="modal-input" id="statusNote" placeholder="e.g. rolled ankle, head cold" value="${existing && existing.note ? esc(existing.note) : ''}">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="statusConfirm">${existing ? 'Update' : 'Save'}</button>
+    </div>
+  `;
+  overlay.appendChild(m);
+  attachModal(overlay);
+
+  let selectedType = existing ? existing.type : 'rest';
+  const hint = m.querySelector('#statusTypeHint');
+  const setHint = () => {
+    const t = STATUS_TYPES.find(x => x.id === selectedType);
+    hint.textContent = t ? t.note : '';
+  };
+  setHint();
+  m.querySelectorAll('#statusTypeRow .intensity-pill').forEach(p => {
+    p.onclick = () => {
+      m.querySelectorAll('#statusTypeRow .intensity-pill').forEach(x => x.classList.remove('selected'));
+      p.classList.add('selected');
+      selectedType = p.dataset.type;
+      setHint();
+    };
+  });
+
+  m.querySelector('#statusConfirm').onclick = async () => {
+    const dateVal = m.querySelector('#statusDate').value;
+    if (!dateVal) { toast('Pick a date'); return; }
+    const noteVal = m.querySelector('#statusNote').value.trim();
+    const [yy, mm, dd] = dateVal.split('-').map(Number);
+    const ts = new Date(yy, mm - 1, dd, 12, 0, 0).toISOString();
+    const entry = { timestamp: ts, date: dateVal, type: selectedType, note: noteVal, auto: false };
+    await addStatusDayToServer(entry);
+    closeModal();
+    if (currentView === 'today') renderToday();
+    if (currentView === 'journal') renderJournal();
+    if (selectedDayDetail) renderDayDetail(selectedDayDetail);
+    const lbl = (STATUS_TYPES.find(t => t.id === selectedType) || {}).label || 'Rest';
+    toast(`${lbl} day logged`);
+  };
+}
+
+function confirmDeleteStatusDay(timestamp, label) {
+  showModal('Remove entry', `Remove this "${label}" day? If it was bridging your streak, the gap reopens.`, [
+    { label: 'Cancel', cls: 'cancel', action: closeModal },
+    { label: 'Remove', cls: 'danger', action: async () => {
+      await deleteStatusDayFromServer(timestamp);
+      closeModal();
+      if (currentView === 'today') renderToday();
       if (currentView === 'journal') renderJournal();
       if (selectedDayDetail) renderDayDetail(selectedDayDetail);
       toast('Removed');
@@ -4140,7 +4429,7 @@ function showApiUrlModal() {
 
 // ─── Data import/export ───
 function exportData() {
-  const data = JSON.stringify({ config, logs, measurements, activities, rehabLogs }, null, 2);
+  const data = JSON.stringify({ config, logs, measurements, activities, rehabLogs, statusDays }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -4167,6 +4456,7 @@ function importData() {
       if (data.measurements) { measurements = data.measurements; saveLocalMeas(); }
       if (data.activities) { activities = data.activities; saveLocalActivities(); }
       if (data.rehabLogs) { rehabLogs = data.rehabLogs; saveLocalRehabLogs(); }
+      if (data.statusDays) { statusDays = data.statusDays; saveLocalStatusDays(); }
       toast('Data imported');
       renderToday();
       renderYou();
@@ -4206,8 +4496,8 @@ document.addEventListener('contextmenu', (e) => {
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  BACKEND SCRIPT (embedded for the in-app guide)            ║
 // ╚═══════════════════════════════════════════════════════════╝
-const BACKEND_SCRIPT = `const CONFIG_SHEET='Config',LOGS_SHEET='Logs',MEAS_SHEET='Measurements',ACTV_SHEET='Activities',REHAB_SHEET='RehabLogs';
-function getOrCreateSheet(n){const s=SpreadsheetApp.getActiveSpreadsheet();let h=s.getSheetByName(n);if(!h){h=s.insertSheet(n);if(n===LOGS_SHEET){h.getRange('A1:H1').setValues([['timestamp','dayId','exerciseId','exerciseName','weight','reps','setIndex','rpe']]);h.setFrozenRows(1);}else if(n===MEAS_SHEET){h.getRange('A1:D1').setValues([['timestamp','type','value','unit']]);h.setFrozenRows(1);}else if(n===ACTV_SHEET){h.getRange('A1:E1').setValues([['timestamp','sport','durationMin','intensity','note']]);h.setFrozenRows(1);}else if(n===REHAB_SHEET){h.getRange('A1:I1').setValues([['timestamp','routineId','exerciseId','exerciseName','format','weight','reps','durationSec','note']]);h.setFrozenRows(1);}}return h;}
+const BACKEND_SCRIPT = `const CONFIG_SHEET='Config',LOGS_SHEET='Logs',MEAS_SHEET='Measurements',ACTV_SHEET='Activities',REHAB_SHEET='RehabLogs',STATUS_SHEET='StatusDays';
+function getOrCreateSheet(n){const s=SpreadsheetApp.getActiveSpreadsheet();let h=s.getSheetByName(n);if(!h){h=s.insertSheet(n);if(n===LOGS_SHEET){h.getRange('A1:H1').setValues([['timestamp','dayId','exerciseId','exerciseName','weight','reps','setIndex','rpe']]);h.setFrozenRows(1);}else if(n===MEAS_SHEET){h.getRange('A1:D1').setValues([['timestamp','type','value','unit']]);h.setFrozenRows(1);}else if(n===ACTV_SHEET){h.getRange('A1:E1').setValues([['timestamp','sport','durationMin','intensity','note']]);h.setFrozenRows(1);}else if(n===REHAB_SHEET){h.getRange('A1:I1').setValues([['timestamp','routineId','exerciseId','exerciseName','format','weight','reps','durationSec','note']]);h.setFrozenRows(1);}else if(n===STATUS_SHEET){h.getRange('A1:E1').setValues([['timestamp','date','type','note','auto']]);h.setFrozenRows(1);}}return h;}
 function getConfig(){const v=getOrCreateSheet(CONFIG_SHEET).getRange('A1').getValue();if(!v)return null;try{return JSON.parse(v);}catch{return null;}}
 function saveConfig(c){getOrCreateSheet(CONFIG_SHEET).getRange('A1').setValue(JSON.stringify(c));}
 function getLogs(){const s=getOrCreateSheet(LOGS_SHEET),lr=s.getLastRow();if(lr<2)return[];const lc=Math.max(6,s.getLastColumn());const d=s.getRange(2,1,lr-1,lc).getValues();return d.map(r=>{const o={timestamp:r[0]instanceof Date?r[0].toISOString():r[0],dayId:r[1],exerciseId:r[2],exerciseName:r[3],weight:r[4],reps:r[5]};if(r[6]!==''&&r[6]!=null)o.setIndex=r[6];if(r[7]!==''&&r[7]!=null)o.rpe=r[7];return o;});}
@@ -4223,17 +4513,22 @@ function deleteActivity(t){const s=getOrCreateSheet(ACTV_SHEET),lr=s.getLastRow(
 function getRehabLogs(){const s=getOrCreateSheet(REHAB_SHEET),lr=s.getLastRow();if(lr<2)return[];const d=s.getRange(2,1,lr-1,9).getValues();return d.map(r=>{const o={timestamp:r[0]instanceof Date?r[0].toISOString():r[0],routineId:r[1],exerciseId:r[2],exerciseName:r[3],format:r[4]};if(r[5]!==''&&r[5]!=null)o.weight=r[5];if(r[6]!==''&&r[6]!=null)o.reps=r[6];if(r[7]!==''&&r[7]!=null)o.durationSec=r[7];if(r[8]!==''&&r[8]!=null)o.note=r[8];return o;});}
 function addRehabLog(e){getOrCreateSheet(REHAB_SHEET).appendRow([e.timestamp||new Date().toISOString(),e.routineId||'',e.exerciseId||'',e.exerciseName||'',e.format||'',e.weight==null?'':e.weight,e.reps==null?'':e.reps,e.durationSec==null?'':e.durationSec,e.note||'']);}
 function deleteRehabLog(t){const s=getOrCreateSheet(REHAB_SHEET),lr=s.getLastRow();if(lr<2)return;const d=s.getRange(2,1,lr-1,1).getValues();for(let i=d.length-1;i>=0;i--){const v=d[i][0]instanceof Date?d[i][0].toISOString():d[i][0];if(v===t)return void s.deleteRow(i+2);}}
-function doGet(e){const a=(e&&e.parameter&&e.parameter.action)||'getData';const r=a==='getData'?{config:getConfig(),logs:getLogs(),measurements:getMeasurements(),activities:getActivities(),rehabLogs:getRehabLogs()}:{error:'Unknown action'};return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}
-function doPost(e){let b;try{b=JSON.parse(e.postData.contents);}catch{return ContentService.createTextOutput(JSON.stringify({error:'Invalid JSON'})).setMimeType(ContentService.MimeType.JSON);}let r={ok:true};switch(b.action){case'saveConfig':saveConfig(b.data);break;case'addLog':addLog(b.data);break;case'deleteLog':deleteLog(b.timestamp);break;case'renameExerciseLogs':renameExerciseLogs(b.exerciseId,b.newName);break;case'addMeasurement':addMeasurement(b.data);break;case'deleteMeasurement':deleteMeasurement(b.timestamp);break;case'addActivity':addActivity(b.data);break;case'deleteActivity':deleteActivity(b.timestamp);break;case'addRehabLog':addRehabLog(b.data);break;case'deleteRehabLog':deleteRehabLog(b.timestamp);break;default:r={error:'Unknown action'};}return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}`;
+function getStatusDays(){const s=getOrCreateSheet(STATUS_SHEET),lr=s.getLastRow();if(lr<2)return[];const d=s.getRange(2,1,lr-1,5).getValues();return d.map(r=>{const o={timestamp:r[0]instanceof Date?r[0].toISOString():r[0],date:r[1]instanceof Date?Utilities.formatDate(r[1],Session.getScriptTimeZone(),'yyyy-MM-dd'):r[1],type:r[2]};if(r[3]!==''&&r[3]!=null)o.note=r[3];o.auto=r[4]===true||r[4]==='true'||r[4]==='TRUE';return o;});}
+function addStatusDay(e){const s=getOrCreateSheet(STATUS_SHEET),lr=s.getLastRow();if(lr>=2){const d=s.getRange(2,2,lr-1,1).getValues();for(let i=d.length-1;i>=0;i--){const v=d[i][0]instanceof Date?Utilities.formatDate(d[i][0],Session.getScriptTimeZone(),'yyyy-MM-dd'):d[i][0];if(v===e.date){s.deleteRow(i+2);}}}getOrCreateSheet(STATUS_SHEET).appendRow([e.timestamp||new Date().toISOString(),e.date||'',e.type||'rest',e.note||'',e.auto===true]);}
+function deleteStatusDay(t){const s=getOrCreateSheet(STATUS_SHEET),lr=s.getLastRow();if(lr<2)return;const d=s.getRange(2,1,lr-1,1).getValues();for(let i=d.length-1;i>=0;i--){const v=d[i][0]instanceof Date?d[i][0].toISOString():d[i][0];if(v===t)return void s.deleteRow(i+2);}}
+function doGet(e){const a=(e&&e.parameter&&e.parameter.action)||'getData';const r=a==='getData'?{config:getConfig(),logs:getLogs(),measurements:getMeasurements(),activities:getActivities(),rehabLogs:getRehabLogs(),statusDays:getStatusDays()}:{error:'Unknown action'};return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}
+function doPost(e){let b;try{b=JSON.parse(e.postData.contents);}catch{return ContentService.createTextOutput(JSON.stringify({error:'Invalid JSON'})).setMimeType(ContentService.MimeType.JSON);}let r={ok:true};switch(b.action){case'saveConfig':saveConfig(b.data);break;case'addLog':addLog(b.data);break;case'deleteLog':deleteLog(b.timestamp);break;case'renameExerciseLogs':renameExerciseLogs(b.exerciseId,b.newName);break;case'addMeasurement':addMeasurement(b.data);break;case'deleteMeasurement':deleteMeasurement(b.timestamp);break;case'addActivity':addActivity(b.data);break;case'deleteActivity':deleteActivity(b.timestamp);break;case'addRehabLog':addRehabLog(b.data);break;case'deleteRehabLog':deleteRehabLog(b.timestamp);break;case'addStatusDay':addStatusDay(b.data);break;case'deleteStatusDay':deleteStatusDay(b.timestamp);break;default:r={error:'Unknown action'};}return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);}`;
 
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  BOOT                                                      ║
 // ╚═══════════════════════════════════════════════════════════╝
 async function init() {
   loadLocal();
+  autoFillRestDays();
   navTab('today');
   if (API_URL) {
     await syncFromServer();
+    autoFillRestDays(); // re-evaluate against freshly synced data
     if (currentView === 'today') renderToday();
   }
 }
