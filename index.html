@@ -1006,7 +1006,43 @@ button, input, select, textarea {
 .modal-btn.cancel { background: var(--bg2); color: var(--text-dim); border: 1px solid var(--line); }
 .modal-btn.confirm { background: var(--accent); color: var(--on-accent); }
 .modal-btn.danger { background: var(--danger); color: #fff; }
+.modal-btn.neutral { background: var(--bg2); color: var(--text); border: 1px solid var(--line); }
 .modal-btn:active { opacity: 0.85; }
+
+/* ─── Drag-to-reorder ────────────────────────────────── */
+.drag-handle {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-mute);
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  flex-shrink: 0;
+}
+.drag-handle:active { cursor: grabbing; }
+.drag-handle svg { width: 16px; height: 16px; fill: currentColor; opacity: .5; pointer-events: none; }
+.ex-handle { align-self: center; width: 18px; height: 30px; margin-left: -8px; }
+.day-handle { position: absolute; top: 8px; right: 14px; width: 30px; height: 30px; }
+.sort-dragging {
+  position: relative; z-index: 50;
+  box-shadow: 0 10px 28px rgba(0,0,0,.28);
+  transition: none !important;
+}
+.sort-dragging .drag-handle { cursor: grabbing; }
+body.sorting { cursor: grabbing; }
+
+/* ─── Move exercise to another day ───────────────────── */
+.move-day-list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 4px; }
+.move-day-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; text-align: left;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 3px;
+  padding: 14px 16px; cursor: pointer;
+  font-family: var(--sans); color: var(--text);
+}
+.move-day-row:active { background: var(--bg3); }
+.move-day-name { font-family: var(--serif); font-size: 17px; }
+.move-day-meta { font-size: 12px; color: var(--text-mute); display: flex; align-items: center; gap: 8px; }
+.move-day-arrow { font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--accent); }
 
 /* ─── Sport picker (activity modal) ──────────────────── */
 .sport-grid {
@@ -1607,6 +1643,7 @@ let restState = null; // { dayId, exId, target, intervalId, totalSec }
 // ╚═══════════════════════════════════════════════════════════╝
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const GRIP = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5" cy="4" r="1.3"/><circle cx="11" cy="4" r="1.3"/><circle cx="5" cy="8" r="1.3"/><circle cx="11" cy="8" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="11" cy="12" r="1.3"/></svg>';
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 function fmtDate(ts) {
@@ -1916,11 +1953,12 @@ function renderToday() {
   list.innerHTML = config.days.map((day, i) => {
     const exCount = day.exercises ? day.exercises.length : 0;
     return `
-      <div class="day-card" onclick="navWorkout('${day.id}')" data-day-id="${day.id}">
+      <div class="day-card" onclick="navWorkout('${day.id}')" data-day-id="${day.id}" data-sort-id="${day.id}">
         <div class="day-card-num">${pad(i + 1)}</div>
         <div class="day-card-name">${esc(day.name)}</div>
         <div class="day-card-meta">${exCount} exercise${exCount === 1 ? '' : 's'}</div>
         <div class="day-card-arrow">→</div>
+        <div class="drag-handle day-handle" onclick="event.stopPropagation()" aria-label="Drag to reorder">${GRIP}</div>
       </div>
     `;
   }).join('');
@@ -2283,8 +2321,9 @@ function exerciseCardHTML(ex, i) {
   const todaySetsLabel = todayCount > 0 ? ` · ${todayCount}/${targetSets} done` : '';
 
   return `
-    <div class="exercise-card ${checked ? 'done' : ''}" id="ex-${ex.id}">
+    <div class="exercise-card ${checked ? 'done' : ''}" id="ex-${ex.id}" data-sort-id="${ex.id}">
       <div class="ex-head">
+        <div class="drag-handle ex-handle" aria-label="Drag to reorder">${GRIP}</div>
         <div class="ex-num">${pad(i + 1)}</div>
         <div class="ex-info">
           <div class="ex-name">${esc(ex.name)}</div>
@@ -3442,7 +3481,8 @@ function showEditExerciseModal(exId) {
       <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
       <button class="modal-btn confirm" id="editConfirm">Save</button>
     </div>
-    <div style="margin-top:12px;">
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+      ${config.days.length > 1 ? `<button class="modal-btn neutral" style="width:100%;" onclick="showMoveExerciseModal('${exId}')">Move to another day →</button>` : ''}
       <button class="modal-btn danger" style="width:100%;" onclick="confirmDeleteExercise('${exId}')">Delete exercise</button>
     </div>
   `;
@@ -3485,6 +3525,61 @@ function confirmDeleteExercise(exId) {
       toast('Exercise removed');
     }}
   ]);
+}
+
+// Move an exercise to another day. PRs and history follow it automatically
+// (logs are keyed by exerciseId, not dayId), so nothing about the logs changes -
+// past sessions keep the day they were done on, future sets log under the new day.
+function showMoveExerciseModal(exId) {
+  const fromDay = config.days.find(d => d.id === currentDayId);
+  if (!fromDay) return;
+  const ex = (fromDay.exercises || []).find(x => x.id === exId);
+  if (!ex) return;
+  const targets = config.days.filter(d => d.id !== currentDayId);
+  if (targets.length === 0) { toast('No other day to move to'); return; }
+
+  closeModal();
+  const overlay = makeOverlay();
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `
+    <div class="modal-handle"></div>
+    <h3>Move <em>${esc(ex.name)}</em></h3>
+    <div class="modal-sub">Pick the day to move it to. Its history and PRs come with it.</div>
+    <div class="move-day-list">
+      ${targets.map(d => {
+        const n = d.exercises ? d.exercises.length : 0;
+        return `<button class="move-day-row" data-target="${d.id}">
+          <span class="move-day-name">${esc(d.name)}</span>
+          <span class="move-day-meta">${n} exercise${n === 1 ? '' : 's'}<span class="move-day-arrow">→</span></span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  overlay.appendChild(m);
+  attachModal(overlay);
+  m.querySelectorAll('.move-day-row').forEach(btn => {
+    btn.onclick = () => moveExerciseToDay(exId, btn.dataset.target);
+  });
+}
+
+function moveExerciseToDay(exId, targetDayId) {
+  const fromDay = config.days.find(d => d.id === currentDayId);
+  const toDay = config.days.find(d => d.id === targetDayId);
+  if (!fromDay || !toDay) return closeModal();
+  const idx = (fromDay.exercises || []).findIndex(x => x.id === exId);
+  if (idx === -1) return closeModal();
+  const [ex] = fromDay.exercises.splice(idx, 1);
+  if (!toDay.exercises) toDay.exercises = [];
+  toDay.exercises.push(ex);
+  saveConfigToServer();
+  checkedExercises.delete(exId);
+  closeModal();
+  renderWorkout();
+  toast(`Moved to ${toDay.name}`);
 }
 
 // ─── Measurements ───
@@ -4466,6 +4561,126 @@ function importData() {
 }
 
 // ╔═══════════════════════════════════════════════════════════╗
+// ║  DRAG-TO-REORDER (touch + mouse sortable)                  ║
+// ╚═══════════════════════════════════════════════════════════╝
+// Generic pointer-based sortable. Drag only starts from a `.drag-handle`
+// inside an item carrying `data-sort-id`. HTML5 drag-and-drop is unreliable
+// on iOS Safari, so this is built on touch/mouse events. onReorder receives
+// the new array of sort-ids once a drag actually changes the order.
+function makeSortable(container, onReorder) {
+  if (!container) return;
+  let dragEl = null, startY = 0, moved = false, startOrder = '', lastDragEndAt = 0;
+  const items = () => Array.from(container.children).filter(c => c.matches('[data-sort-id]'));
+
+  function onDown(e) {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle || !container.contains(handle)) return;
+    const item = handle.closest('[data-sort-id]');
+    if (!item) return;
+    e.preventDefault();
+    clearTimeout(lpTimer); lpTriggered = false; // cancel any pending day-card long-press
+    dragEl = item;
+    moved = false;
+    const pt = e.touches ? e.touches[0] : e;
+    startY = pt.clientY;
+    // Cards have already played their `cardRise` entrance. Pin it off now so that
+    // reordering (insertBefore re-inserts nodes, which restarts CSS animations)
+    // doesn't make siblings flicker or fight the dragged card's translateY. The
+    // inline style is wiped when the view next re-renders with fresh nodes.
+    items().forEach(el => { el.style.animation = 'none'; });
+    startOrder = items().map(c => c.dataset.sortId).join(',');
+    dragEl.classList.add('sort-dragging');
+    document.body.classList.add('sorting');
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    window.addEventListener('touchcancel', onUp);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  function onMove(e) {
+    if (!dragEl) return;
+    if (e.cancelable) e.preventDefault();
+    const pt = e.touches ? e.touches[0] : e;
+    const y = pt.clientY;
+    if (Math.abs(y - startY) > 3) moved = true;
+    dragEl.style.transform = `translateY(${y - startY}px)`;
+
+    const sibs = items();
+    const idx = sibs.indexOf(dragEl);
+    const below = sibs[idx + 1];
+    if (below) {
+      const r = below.getBoundingClientRect();
+      if (y > r.top + r.height / 2) {
+        const before = dragEl.getBoundingClientRect().top;
+        container.insertBefore(below, dragEl);
+        startY += dragEl.getBoundingClientRect().top - before; // keep visual position across the reflow
+        dragEl.style.transform = `translateY(${y - startY}px)`;
+        return;
+      }
+    }
+    const above = sibs[idx - 1];
+    if (above) {
+      const r = above.getBoundingClientRect();
+      if (y < r.top + r.height / 2) {
+        const before = dragEl.getBoundingClientRect().top;
+        container.insertBefore(dragEl, above);
+        startY += dragEl.getBoundingClientRect().top - before;
+        dragEl.style.transform = `translateY(${y - startY}px)`;
+        return;
+      }
+    }
+  }
+
+  function onUp() {
+    if (!dragEl) return;
+    const el = dragEl;
+    dragEl = null;
+    el.classList.remove('sort-dragging');
+    el.style.transform = '';
+    document.body.classList.remove('sorting');
+    window.removeEventListener('touchmove', onMove);
+    window.removeEventListener('touchend', onUp);
+    window.removeEventListener('touchcancel', onUp);
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    if (moved) lastDragEndAt = Date.now(); // window to swallow the click that follows a drag
+    const order = items().map(c => c.dataset.sortId);
+    if (order.join(',') !== startOrder) onReorder(order);
+  }
+
+  container.addEventListener('touchstart', onDown, { passive: false });
+  container.addEventListener('mousedown', onDown);
+  // Eat only the click immediately after a drag (self-expiring, so a later real tap
+  // is never swallowed even if touch fires no trailing click).
+  container.addEventListener('click', (e) => {
+    if (Date.now() - lastDragEndAt < 350) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+}
+
+function reorderDays(order) {
+  const rank = {}; order.forEach((id, i) => rank[id] = i);
+  config.days.sort((a, b) => (rank[a.id] ?? 0) - (rank[b.id] ?? 0));
+  saveConfigToServer();
+  Array.from(document.getElementById('dayList').children).forEach((card, i) => {
+    const num = card.querySelector('.day-card-num');
+    if (num) num.textContent = pad(i + 1);
+  });
+}
+
+function reorderExercises(order) {
+  const day = config.days.find(d => d.id === currentDayId);
+  if (!day || !day.exercises) return;
+  const rank = {}; order.forEach((id, i) => rank[id] = i);
+  day.exercises.sort((a, b) => (rank[a.id] ?? 0) - (rank[b.id] ?? 0));
+  saveConfigToServer();
+  Array.from(document.getElementById('exerciseList').children).forEach((card, i) => {
+    const num = card.querySelector('.ex-num');
+    if (num) num.textContent = pad(i + 1);
+  });
+}
+
+// ╔═══════════════════════════════════════════════════════════╗
 // ║  LONG-PRESS for day cards (rename)                         ║
 // ╚═══════════════════════════════════════════════════════════╝
 let lpTimer = null;
@@ -4525,6 +4740,8 @@ function doPost(e){let b;try{b=JSON.parse(e.postData.contents);}catch{return Con
 async function init() {
   loadLocal();
   autoFillRestDays();
+  makeSortable(document.getElementById('dayList'), reorderDays);
+  makeSortable(document.getElementById('exerciseList'), reorderExercises);
   navTab('today');
   if (API_URL) {
     await syncFromServer();
