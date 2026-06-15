@@ -3259,6 +3259,14 @@ function makeOverlay() {
 function attachModal(overlay) {
   document.body.appendChild(overlay);
   modalEl = overlay;
+  // iOS Safari otherwise treats these as contact fields and shows a "Fill Contact"
+  // AutoFill bar. Mark every field as plain free text so it doesn't. (autocomplete
+  // is left intact on any input that already sets it.)
+  overlay.querySelectorAll('input').forEach(inp => {
+    if (!inp.hasAttribute('autocomplete')) inp.setAttribute('autocomplete', 'off');
+    inp.setAttribute('autocorrect', 'off');
+    inp.setAttribute('spellcheck', 'false');
+  });
   const modal = overlay.querySelector('.modal');
   const handle = modal && modal.querySelector('.modal-handle');
   if (!modal || !handle) return;
@@ -3344,8 +3352,7 @@ function showInputModal(title, label, placeholder, initial, onConfirm, type = 't
   overlay.appendChild(m);
   attachModal(overlay);
   const inp = m.querySelector('#mi');
-  inp.focus();
-  if (type === 'text') inp.select();
+  // No auto-focus: let the user see the form first; the keyboard comes up only on tap.
   m.querySelector('#mc').onclick = () => onConfirm(inp.value);
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') onConfirm(inp.value); });
 }
@@ -3425,7 +3432,6 @@ function showAddExerciseModal() {
   `;
   overlay.appendChild(m);
   attachModal(overlay);
-  m.querySelector('#exName').focus();
   m.querySelector('#exConfirm').onclick = () => {
     const name = m.querySelector('#exName').value.trim();
     const sets = parseInt(m.querySelector('#exSets').value) || 3;
@@ -3488,7 +3494,6 @@ function showEditExerciseModal(exId) {
   `;
   overlay.appendChild(m);
   attachModal(overlay);
-  m.querySelector('#editName').focus();
   m.querySelector('#editConfirm').onclick = () => {
     const newName = m.querySelector('#editName').value.trim();
     const newSets = parseInt(m.querySelector('#editSets').value) || ex.sets;
@@ -3629,7 +3634,6 @@ function showAddMeasurementModal() {
     else if (sel.value === 'Chest' || sel.value === 'Waist' || sel.value === 'Arms' || sel.value === 'Thighs' || sel.value === 'Calves' || sel.value === 'Neck') unitInput.value = 'cm';
     else if (sel.value === 'Weight') unitInput.value = units;
   };
-  m.querySelector('#measVal').focus();
   m.querySelector('#measConfirm').onclick = async () => {
     let type = sel.value;
     if (type === '__custom') {
@@ -3774,7 +3778,6 @@ function showAddActivityModal(presetDate) {
     grid.querySelectorAll('.sport-card').forEach(b => b.classList.remove('selected'));
     customBtn.classList.add('selected');
     customWrap.style.display = 'block';
-    m.querySelector('#actCustomName').focus();
   };
 
   m.querySelectorAll('#intensityRow .intensity-pill').forEach(p => {
@@ -4190,7 +4193,6 @@ function showAddRehabExerciseModal() {
   `;
   overlay.appendChild(m);
   attachModal(overlay);
-  m.querySelector('#rxName').focus();
 
   let selectedFormat = 'isometric';
   const applyFormatUI = () => {
@@ -4511,7 +4513,6 @@ function showApiUrlModal() {
   overlay.appendChild(m);
   attachModal(overlay);
   const inp = m.querySelector('#apiInput');
-  inp.focus();
   m.querySelector('#apiSave').onclick = () => {
     API_URL = inp.value.trim();
     localStorage.setItem('forge_api_url', API_URL);
