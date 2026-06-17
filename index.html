@@ -478,6 +478,8 @@ button, input, select, textarea {
   display: flex; gap: 12px; flex-wrap: wrap;
 }
 .ex-spec .pr-tag { color: var(--accent); }
+.ex-spec .share-tag { color: var(--text-mute); opacity: .9; display: inline-flex; align-items: center; gap: 3px; }
+.ex-spec .share-tag svg { width: 11px; height: 11px; }
 .ex-check {
   width: 22px; height: 22px;
   border: 1px solid var(--line2);
@@ -2267,9 +2269,19 @@ function renderWorkout() {
   list.innerHTML = day.exercises.map((ex, i) => exerciseCardHTML(ex, i)).join('');
 }
 
+// Days (other than the one passed) whose exercises[] contain this same exercise id.
+// A "shared" exercise is just the same id living in more than one day's list.
+function otherDaysWithExercise(exId, exceptDayId) {
+  return config.days.filter(d => d.id !== exceptDayId && (d.exercises || []).some(x => x.id === exId));
+}
+
 function exerciseCardHTML(ex, i) {
   const checked = checkedExercises.has(ex.id);
   const pr = getPR(ex.id);
+  const sharedDays = otherDaysWithExercise(ex.id, currentDayId);
+  const shareTag = sharedDays.length
+    ? `<span class="share-tag" title="Shared with ${sharedDays.map(d => esc(d.name)).join(', ')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Shared</span>`
+    : '';
   const todayLogs = getTodayLogsFor(ex.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   const setByset = !!ex.trackEachSet;
   const targetSets = parseInt(ex.sets) || 3;
@@ -2330,6 +2342,7 @@ function exerciseCardHTML(ex, i) {
           <div class="ex-spec">
             <span>${targetSets} × ${esc(ex.repRange || '—')}${todaySetsLabel}</span>
             ${pr ? `<span class="pr-tag">PR · ${pr.weight}${units} × ${pr.reps}</span>` : ''}
+            ${shareTag}
           </div>
         </div>
         <button class="ex-check ${checked ? 'checked' : ''}" onclick="toggleCheck('${ex.id}')">
@@ -3489,7 +3502,8 @@ function showEditExerciseModal(exId) {
     </div>
     <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
       ${config.days.length > 1 ? `<button class="modal-btn neutral" style="width:100%;" onclick="showMoveExerciseModal('${exId}')">Move to another day →</button>` : ''}
-      <button class="modal-btn danger" style="width:100%;" onclick="confirmDeleteExercise('${exId}')">Delete exercise</button>
+      ${otherDaysWithoutExercise(exId).length ? `<button class="modal-btn neutral" style="width:100%;" onclick="showShareExerciseModal('${exId}')">Share to another day →</button>` : ''}
+      <button class="modal-btn danger" style="width:100%;" onclick="confirmDeleteExercise('${exId}')">${otherDaysWithExercise(exId, currentDayId).length ? 'Remove from this day' : 'Delete exercise'}</button>
     </div>
   `;
   overlay.appendChild(m);
@@ -3501,10 +3515,11 @@ function showEditExerciseModal(exId) {
     const newTrack = m.querySelector('#editTrack').classList.contains('on');
     if (!newName) return;
     const oldName = ex.name;
-    ex.name = newName;
-    ex.sets = newSets;
-    ex.repRange = newReps;
-    ex.trackEachSet = newTrack;
+    // Shared exercises are fully linked: apply the edit to every day that holds
+    // this same exercise id, not just the one being viewed.
+    config.days.forEach(d => (d.exercises || []).forEach(x => {
+      if (x.id === exId) { x.name = newName; x.sets = newSets; x.repRange = newReps; x.trackEachSet = newTrack; }
+    }));
     saveConfigToServer();
     if (oldName !== newName) {
       logs.forEach(l => { if (l.exerciseId === exId) l.exerciseName = newName; });
@@ -3518,9 +3533,13 @@ function showEditExerciseModal(exId) {
 }
 
 function confirmDeleteExercise(exId) {
-  showModal('Delete exercise', 'Remove this exercise from the day? Past logs are kept.', [
+  const shared = otherDaysWithExercise(exId, currentDayId);
+  const msg = shared.length
+    ? `Remove from this day? It stays shared on ${shared.map(d => d.name).join(', ')}, and all logs are kept.`
+    : 'Remove this exercise from the day? Past logs are kept.';
+  showModal(shared.length ? 'Remove from this day' : 'Delete exercise', msg, [
     { label: 'Cancel', cls: 'cancel', action: closeModal },
-    { label: 'Delete', cls: 'danger', action: () => {
+    { label: shared.length ? 'Remove' : 'Delete', cls: 'danger', action: () => {
       const day = config.days.find(d => d.id === currentDayId);
       if (!day) return closeModal();
       day.exercises = day.exercises.filter(x => x.id !== exId);
@@ -3540,7 +3559,7 @@ function showMoveExerciseModal(exId) {
   if (!fromDay) return;
   const ex = (fromDay.exercises || []).find(x => x.id === exId);
   if (!ex) return;
-  const targets = config.days.filter(d => d.id !== currentDayId);
+  const targets = config.days.filter(d => d.id !== currentDayId && !(d.exercises || []).some(x => x.id === exId));
   if (targets.length === 0) { toast('No other day to move to'); return; }
 
   closeModal();
@@ -3585,6 +3604,66 @@ function moveExerciseToDay(exId, targetDayId) {
   closeModal();
   renderWorkout();
   toast(`Moved to ${toDay.name}`);
+}
+
+// ─── Share an exercise across days ───
+// Sharing keeps the SAME exercise id, so logs/PR/history (all keyed by exerciseId)
+// are shared automatically and the config stays fully linked (edits propagate to
+// every copy). Days that already hold this id are excluded as share targets.
+function otherDaysWithoutExercise(exId) {
+  return config.days.filter(d => d.id !== currentDayId && !(d.exercises || []).some(x => x.id === exId));
+}
+
+function showShareExerciseModal(exId) {
+  const fromDay = config.days.find(d => d.id === currentDayId);
+  if (!fromDay) return;
+  const ex = (fromDay.exercises || []).find(x => x.id === exId);
+  if (!ex) return;
+  const targets = otherDaysWithoutExercise(exId);
+  if (targets.length === 0) { toast('Already on every day'); return; }
+
+  closeModal();
+  const overlay = makeOverlay();
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `
+    <div class="modal-handle"></div>
+    <h3>Share <em>${esc(ex.name)}</em></h3>
+    <div class="modal-sub">Add it to another day too. It stays one exercise - same PR, history, and settings on every day.</div>
+    <div class="move-day-list">
+      ${targets.map(d => {
+        const n = d.exercises ? d.exercises.length : 0;
+        return `<button class="move-day-row" data-target="${d.id}">
+          <span class="move-day-name">${esc(d.name)}</span>
+          <span class="move-day-meta">${n} exercise${n === 1 ? '' : 's'}<span class="move-day-arrow">→</span></span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  overlay.appendChild(m);
+  attachModal(overlay);
+  m.querySelectorAll('.move-day-row').forEach(btn => {
+    btn.onclick = () => shareExerciseToDay(exId, btn.dataset.target);
+  });
+}
+
+function shareExerciseToDay(exId, targetDayId) {
+  const fromDay = config.days.find(d => d.id === currentDayId);
+  const toDay = config.days.find(d => d.id === targetDayId);
+  if (!fromDay || !toDay) return closeModal();
+  const ex = (fromDay.exercises || []).find(x => x.id === exId);
+  if (!ex) return closeModal();
+  if (!toDay.exercises) toDay.exercises = [];
+  if (toDay.exercises.some(x => x.id === exId)) { closeModal(); toast(`Already on ${toDay.name}`); return; }
+  // Copy the descriptor but keep the SAME id so the two stay linked.
+  toDay.exercises.push({ id: ex.id, name: ex.name, sets: ex.sets, repRange: ex.repRange, trackEachSet: ex.trackEachSet });
+  saveConfigToServer();
+  closeModal();
+  renderWorkout();
+  toast(`Shared to ${toDay.name}`);
 }
 
 // ─── Measurements ───
